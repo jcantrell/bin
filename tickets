@@ -1,0 +1,170 @@
+ticket_path='/cygdrive/c/apocrypha/home/jordan/.tickets/'
+
+list()
+{
+	# Wrap each argument in double quotes, 
+	# and precede it with '-e ' (except '-v')
+
+	[[ $# == 0 ]] && args="\"\"" || args=""
+	for var in "$@" ; do
+	    [[ "$var" != "-v" ]] && args=$args" -e";
+	    args=$args" \"$var\"";
+	done
+
+	# Grep for given arguments in openlist, sort by ticket number
+
+	eval "grep $args ${ticket_path}openlist" \
+		| sort -V
+}
+
+view()
+{
+	if (($# ==  0)); then
+		echo "Usage: tickets view n1 n2 n3 ..."
+	else
+		[[ -e "$ticket_path$1" ]] && \
+    	cat "$ticket_path$1" || \
+			cat "$ticket_path"closed"/$1"
+	fi
+}
+
+edit()
+{
+	(( $#!=0 )) && ed "$ticket_path$1" \
+	|| echo "Usage: tickets edit n"
+
+	# Update entry in openlist
+
+	#Remove old entry
+	sed "/^$1/d" -i ${ticket_path}openlist
+	
+	#Get new title of task
+	var=$(sed -n '/^title: /p' ${ticket_path}$1)
+
+	#Add new title to openlist
+	echo $1" "$var >> ${ticket_path}openlist
+}
+
+new()
+{
+	if (( $# != 0)); then
+		title=$1;
+	else
+		title="?";
+	fi
+
+  cf=${ticket_path}current
+
+  if [ -f ${cf} ]; then
+		c=$(( $(cat ${cf}) + 1))
+	else
+		c=1
+	fi
+  echo ${c} > ${cf}
+	f=${ticket_path}${c}
+
+	echo -n "ticket: " >> ${f}
+	echo ${c} >> ${f}
+	echo -n "responsible: " >> ${f}
+	echo ${USER}"@"$(hostname) >> ${f}
+	echo "status: open" >> ${f}
+	echo "title: $title" >> ${f}
+	echo -n "open date: " >> ${f}
+	date >> ${f}
+	echo "close date: " >> ${f}
+	echo "man hours: " >> ${f}
+	echo "----" >> ${f}
+	echo "Describe the problem here" >> ${f}
+
+	# Add an entry to openlist
+	echo ${c}" title: $title" >> ${ticket_path}openlist
+
+	echo ${c}
+	chmod 777 $f
+}
+
+# Create a new weekly task;
+# Put date in title and add to weekly file
+weekly()
+{
+    n=$(tickets new)
+    sed "/title: /s/?/weekly tasks $(date +'%a, %b %d')/; /Describe the problem here/d" -i $ticket_path$n
+    cat "$ticket_path"recurring/weekly >> $ticket_path$n
+}
+
+close()
+{
+	# To-do: what if ticket $n doesn't exist, or already closed?
+	if (( $# != 0 )); then
+		for ((n=1;n<=$#;n++))
+		do
+    	sed "/status: /s/open/closed/" -i $ticket_path${!n}
+    	sed "/close date: /s/$/$(date)/" -i $ticket_path${!n}
+			mv $ticket_path${!n} $ticket_path"closed"
+
+			# Remove from openlist
+			sed "/"${!n}"/d" -i ${ticket_path}openlist
+		done
+	else
+		echo "Usage: tickets close n"
+	fi
+}
+
+refresh()
+{
+	# move all status: closed tickets to .tickets/closed, all else to .tickets
+	# list all tickets not in .tickets/closed in openlist
+
+	# Move unclosed tickets to .tickets
+	grep -R -L 'status: closed' ${ticket_path}closed \
+		| xargs -I{} mv {} ${ticket_path}
+
+	# Move closed tickets to closed
+	grep --exclude-dir=closed -R -l 'status: closed' ${ticket_path} \
+		| xargs -I{} mv {} ${ticket_path}closed
+	
+	# Create openlist
+	grep --exclude-dir=closed --exclude-dir=.git --exclude=current \
+		--exclude=openlist --exclude-dir=recurring -R -L 'status: closed' \
+		${ticket_path} \
+		| xargs grep 'title: ' \
+		| awk -F "/" '{print $NF}' \
+		| sort -V \
+		| sed 's/:/ /' >${ticket_path}openlist
+
+}
+
+main()
+{
+    action="$1"
+    shift
+	case "$action" in
+	      list)
+	        list "$@"
+	        ;;
+        view)
+          view "$@"
+          ;;
+        edit)
+          edit "$@"
+          ;;
+        new)
+          new "$@"
+          ;;
+        weekly)
+          weekly "$@"
+          ;;
+        close)
+          close "$@"
+          ;;
+				refresh)
+					refresh "$@"
+					;;
+	      *)
+	        echo -n "Usage: tickets {list RE|view n|edit n|new title|weekly"
+					echo    "|close n|refresh}"
+          exit 1
+	esac
+}
+
+main "$@"

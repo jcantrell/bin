@@ -1,0 +1,35 @@
+pi = 4*a(1)
+
+/* tangent function of theta, in radians */
+define t(theta) {
+	return s(theta) / c(theta)
+}
+
+/* x^y for all real numbers */
+define p(x,y) {
+	return e( y * l(x) )
+}
+
+/* arcsine (in radians) */
+define as(r)
+{
+	return a(r/sqrt(1-p(r,2)))
+}
+
+/* arccos(x) */
+define ac(r)
+{
+	return a(sqrt(1-p(r,2))/r)
+}
+
+/* degrees to radians */
+define d2r(d)
+{
+	return d * pi/180
+}
+
+/* radians to degrees */
+define r2d(r)
+{
+	return r * 180/pi
+}
