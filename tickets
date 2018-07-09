@@ -1,4 +1,5 @@
-ticket_path='/cygdrive/c/apocrypha/home/jordan/.tickets/'
+#ticket_path='/cygdrive/c/apocrypha/home/jordan/.tickets/'
+ticket_path='/home/jordan/.tickets/'
 
 list()
 {
@@ -22,9 +23,7 @@ view()
 	if (($# ==  0)); then
 		echo "Usage: tickets view n1 n2 n3 ..."
 	else
-		[[ -e "$ticket_path$1" ]] && \
-    	cat "$ticket_path$1" || \
-			cat "$ticket_path"closed"/$1"
+		[[ -e "$ticket_path$1" ]] && cat "$ticket_path$1" || cat "$ticket_path"closed"/$1"
 	fi
 }
 
@@ -112,7 +111,8 @@ close()
 
 refresh()
 {
-	# move all status: closed tickets to .tickets/closed, all else to .tickets
+	# move all status: closed tickets to .tickets/closed, 
+	#	all else to .tickets
 	# list all tickets not in .tickets/closed in openlist
 
 	# Move unclosed tickets to .tickets
