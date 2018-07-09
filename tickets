@@ -141,6 +141,9 @@ refresh()
 sync()
 {
   pushd $ticket_path
+  git add -A
+  git commit -m "auto sync $(date)"
+  git push
   git pull
   popd
 }
