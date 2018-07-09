@@ -1,5 +1,7 @@
 #ticket_path='/cygdrive/c/apocrypha/home/jordan/.tickets/'
-ticket_path='/home/jordan/.tickets/'
+#ticket_path='/home/jordan/.tickets/'
+#ticket_path='/home/jordan/.tickets/'
+ticket_path=~/.tickets/
 
 list()
 {
@@ -23,7 +25,9 @@ view()
 	if (($# ==  0)); then
 		echo "Usage: tickets view n1 n2 n3 ..."
 	else
-		[[ -e "$ticket_path$1" ]] && cat "$ticket_path$1" || cat "$ticket_path"closed"/$1"
+		[[ -e "$ticket_path$1" ]] && \
+      cat "$ticket_path$1" || \
+      cat "$ticket_path"closed"/$1"
 	fi
 }
 
@@ -134,6 +138,13 @@ refresh()
 
 }
 
+sync()
+{
+  pushd $ticket_path
+  git pull
+  popd
+}
+
 main()
 {
     action="$1"
@@ -160,6 +171,9 @@ main()
 				refresh)
 					refresh "$@"
 					;;
+        sync)
+          sync "$@"
+          ;;
 	      *)
 	        echo -n "Usage: tickets {list RE|view n|edit n|new title|weekly"
 					echo    "|close n|refresh}"
