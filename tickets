@@ -1,4 +1,4 @@
-#ticket_path='/cygdrive/c/apocrypha/home/jordan/.tickets/'
+#'ticket_path='/cygdrive/c/apocrypha/home/jordan/.tickets/'
 #ticket_path='/home/jordan/.tickets/'
 #ticket_path='/home/jordan/.tickets/'
 ticket_path=~/.tickets/
@@ -131,7 +131,7 @@ refresh()
 	grep --exclude-dir=closed --exclude-dir=.git --exclude=current \
 		--exclude=openlist --exclude-dir=recurring -R -L 'status: closed' \
 		${ticket_path} \
-		| xargs grep 'title: ' \
+		| xargs grep '^title: ' \
 		| awk -F "/" '{print $NF}' \
 		| sort -V \
 		| sed 's/:/ /' >${ticket_path}openlist
@@ -145,40 +145,60 @@ sync()
   popd
 }
 
+dup()
+{
+	if (($# ==  0)); then
+		echo "Usage: tickets view n1 n2 n3 ..."
+	else
+    t="$1"
+    n=$(tickets new)
+    f=${ticket_path}${n}
+    sed -i '1,/----/d' $f
+    cat ${ticket_path}${t} >> $f
+    sed -i '/ticket:/c\ticket: '$n $f
+    sed -i '1d' $f
+	fi
+  refresh
+}
+
 main()
 {
-    action="$1"
-    shift
+  action="$1"
+  shift
 	case "$action" in
-	      list)
-	        list "$@"
-	        ;;
-        view)
-          view "$@"
-          ;;
-        edit)
-          edit "$@"
-          ;;
-        new)
-          new "$@"
-          ;;
-        weekly)
-          weekly "$@"
-          ;;
-        close)
-          close "$@"
-          ;;
-				refresh)
-					refresh "$@"
-					;;
-        sync)
-          sync "$@"
-          ;;
-	      *)
-	        echo -n "Usage: tickets {list RE|view n|edit n|new title|weekly"
-					echo    "|close n|refresh}"
-          exit 1
+	  list)
+	    list "$@"
+	    ;;
+    view)
+      view "$@"
+      ;;
+    edit)
+      edit "$@"
+      ;;
+    new)
+      new "$@"
+      ;;
+    weekly)
+      weekly "$@"
+      ;;
+    close)
+      close "$@"
+      ;;
+    refresh)
+      refresh "$@"
+      ;;
+    sync)
+      sync "$@"
+      ;;
+    dup)
+      dup "$@"
+      ;;
+    *)
+      echo -n "Usage: tickets {list RE|view n|edit n|new title|weekly"
+      echo    "|close n|refresh|sync|dup n}"
+      exit 1
 	esac
+  date +'%s' >${ticket_path}timestamp
 }
 
 main "$@"
