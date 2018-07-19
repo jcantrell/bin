@@ -33,19 +33,22 @@ view()
 
 edit()
 {
-	(( $#!=0 )) && ed "$ticket_path$1" \
-	|| echo "Usage: tickets edit n"
+	if (( $#!=0 )); then
+    ed "$ticket_path$1" \
 
-	# Update entry in openlist
-
-	#Remove old entry
-	sed "/^$1/d" -i ${ticket_path}openlist
-	
-	#Get new title of task
-	var=$(sed -n '/^title: /p' ${ticket_path}$1)
-
-	#Add new title to openlist
-	echo $1" "$var >> ${ticket_path}openlist
+  	# Update entry in openlist
+  
+  	#Remove old entry
+  	sed "/^$1/d" -i ${ticket_path}openlist
+  	
+  	#Get new title of task
+  	var=$(sed -n '/^title: /p' ${ticket_path}$1)
+  
+  	#Add new title to openlist
+  	echo $1" "$var >> ${ticket_path}openlist
+  else
+	  echo "Usage: tickets edit n"
+  fi
 }
 
 new()
