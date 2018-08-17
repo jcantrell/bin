@@ -135,6 +135,9 @@ recurring()
     crontab -l | grep -v "tickets recurring activate $1" | crontab -
     rm ${ticket_path}recurring/$1
     ;;
+  view)
+    cat ${ticket_path}recurring/$1
+    ;;
   list)
     #(for f in ${ticket_path}recurring/*; do
     #  [ -e "$f" ] || continue;
