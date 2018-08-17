@@ -152,6 +152,7 @@ recurring()
     ;;
   activate)
     activateRecurring "$1"
+    tickets sync
     ;;
   *)
     echo -n "Usage: tickets recurring {add crondate title |"
