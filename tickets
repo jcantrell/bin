@@ -235,6 +235,7 @@ refresh()
 sync()
 {
   pushd $ticket_path
+  git pull
   git add -A
   git commit -m "auto sync $(date)"
   git push
