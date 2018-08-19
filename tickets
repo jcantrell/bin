@@ -236,9 +236,12 @@ refresh()
 sync()
 {
   pushd $ticket_path
-  git pull
+  d=$(date +'%s')
+  touch ${ticket_path}timestamp/"$d"
+  find ${ticket_path}timestamp/ -type f -not -name "$d" -delete
   git add -A
   git commit -m "auto sync $(date)"
+  git pull
   git push
   git pull
   popd
@@ -300,16 +303,8 @@ main()
       refresh "$@"
       ;;
     sync)
-      d=$(date +'%s')
-      touch ${ticket_path}timestamp/"$d"
-      find ${ticket_path}timestamp/ -type f -not -name "$d" -delete
-      # date +'%s' >>${ticket_path}timestamp
-      # cat ${ticket_path}timestamp | sort -r | head -n 1 >${ticket_path}timestamp2
-      #mv ${ticket_path}timestamp2 ${ticket_path}timestamp
-      # add and commit timestamp
-      git add -A
-      git commit -m "auto sync $(date)"
       sync "$@"
+      popd
       exit
       ;;
     dup)
@@ -323,13 +318,8 @@ main()
       echo    "|close n|refresh|sync|dup n}"
       exit 1
 	esac
-  # date +'%s' >${ticket_path}timestamp/
-  d=$(date +'%s')
-  touch ${ticket_path}timestamp/"$d"
-  find ${ticket_path}timestamp/ -type f -not -name "$d" -delete
-  # cat ${ticket_path}timestamp | sort -r | head -n 1 >${ticket_path}timestamp2
-  # mv ${ticket_path}timestamp2 ${ticket_path}timestamp
-  tickets sync >/dev/null 2>&1 # push new timestamp
+
+  tickets sync >/dev/null  # push new timestamp
 }
 
 main "$@"
