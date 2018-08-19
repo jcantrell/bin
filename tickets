@@ -329,7 +329,7 @@ main()
   find ${ticket_path}timestamp/ -type f -not -name "$d" -delete
   # cat ${ticket_path}timestamp | sort -r | head -n 1 >${ticket_path}timestamp2
   # mv ${ticket_path}timestamp2 ${ticket_path}timestamp
-  tickets sync >/dev/null # push new timestamp
+  tickets sync >/dev/null 2>&1 # push new timestamp
 }
 
 main "$@"
