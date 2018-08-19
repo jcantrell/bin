@@ -318,7 +318,7 @@ main()
       exit 1
 	esac
 
-  tickets sync >/dev/null 2>&1 # push new timestamp
+  tickets sync >/dev/null 2>&1 &# push new timestamp
 }
 
 main "$@"
