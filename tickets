@@ -299,7 +299,9 @@ main()
       refresh "$@"
       ;;
     sync)
+      date +'%s' >${ticket_path}timestamp
       sync "$@"
+      exit
       ;;
     dup)
       dup "$@"
@@ -313,6 +315,7 @@ main()
       exit 1
 	esac
   date +'%s' >${ticket_path}timestamp
+  tickets sync # push new timestamp
 }
 
 main "$@"
