@@ -300,6 +300,9 @@ main()
       ;;
     sync)
       date +'%s' >${ticket_path}timestamp
+      # add and commit timestamp
+      git add -A
+      git commit -m "auto sync $(date)"
       sync "$@"
       exit
       ;;
