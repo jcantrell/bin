@@ -304,7 +304,6 @@ main()
       ;;
     sync)
       sync "$@"
-      popd
       exit
       ;;
     dup)
