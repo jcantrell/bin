@@ -27,8 +27,8 @@ view()
 	if (($# ==  0)); then
 		echo "Usage: tickets view n1 n2 n3 ..."
 	else
-		[[ -e "$ticket_path$1" ]] && \
-      cat "$ticket_path$1" || \
+		[[ -e "$ticket_path"open/"$1" ]] && \
+      cat "$ticket_path"open/"$1" || \
       cat "$ticket_path"closed"/$1"
 	fi
 }
@@ -36,7 +36,7 @@ view()
 edit()
 {
 	if (( $#!=0 )); then
-    ed "$ticket_path$1" \
+    ed "$ticket_path"open/"$1" \
 
   	# Update entry in openlist
   
@@ -44,7 +44,7 @@ edit()
   	sed "/^$1/d" -i ${ticket_path}openlist
   	
   	#Get new title of task
-  	var=$(sed -n '/^title: /p' ${ticket_path}$1)
+  	var=$(sed -n '/^title: /p' ${ticket_path}open/$1)
   
   	#Add new title to openlist
   	echo $1" "$var >> ${ticket_path}openlist
@@ -69,7 +69,7 @@ new()
 		c=1
 	fi
   echo ${c} > ${cf}
-	f=${ticket_path}${c}
+	f=${ticket_path}open/${c}
 
 	echo -n "ticket: " >> ${f}
 	echo ${c} >> ${f}
@@ -108,11 +108,6 @@ recurring()
     echo "title: $title" >> ${f}
     echo "crondate: $crondate" >> ${f}
     chmod 777 $f
-    #croncommand="$crondate /bin/bash -ci 'source "
-    #croncommand="$croncommand""\$HOME/.bashrc;"
-    #croncommand="$croncommand""tickets recurring activate $c'"
-    #(crontab -l; echo "$croncommand") \
-    #  2>/dev/null | uniq | crontab -
     tickets recurring reset
     echo ${c}
     ;;
@@ -172,7 +167,7 @@ activateRecurring()
   title=$(grep title ${ticket_path}recurring/$1 | sed 's/title: //')
   n=$(tickets new "$title")
   s="Describe the problem here"
-  sed '/'"$s"'/d' -i ${ticket_path}$n # delete line matching s
+  sed '/'"$s"'/d' -i ${ticket_path}open/$n # delete line matching s
   cat "$ticket_path"recurring/$1 | sed '/title: /d' >> "$ticket_path$n"
 }
 
@@ -191,14 +186,14 @@ close()
 	if (( $# != 0 )); then
 		for ((n=1;n<=$#;n++))
 		do
-		  if [[ ! -e "$ticket_path${!n}" ]]; then
+		  if [[ ! -e "${ticket_path}"open/"${!n}" ]]; then
         echo "Ticket ${!n} doesn't exist or is already closed!"
         continue
       fi
       
-    	sed "/status: /s/open/closed/" -i $ticket_path${!n}
-    	sed "/close date: /s/$/$(date)/" -i $ticket_path${!n}
-			mv $ticket_path${!n} $ticket_path"closed"
+    	sed "/status: /s/open/closed/" -i ${ticket_path}open/${!n}
+    	sed "/close date: /s/$/$(date)/" -i ${ticket_path}open/${!n}
+			mv ${ticket_path}open/${!n} $ticket_path"closed"
 
 			# Remove from openlist
 			sed "/"${!n}"/d" -i ${ticket_path}openlist
@@ -216,7 +211,7 @@ refresh()
 
 	# Move unclosed tickets to .tickets
 	grep -R -L 'status: closed' ${ticket_path}closed \
-		| xargs -I{} mv {} ${ticket_path}
+		| xargs -I{} mv {} ${ticket_path}open
 
 	# Move closed tickets to closed
 	grep --exclude-dir=closed -R -l 'status: closed' ${ticket_path} \
@@ -254,9 +249,9 @@ dup()
 	else
     t="$1"
     n=$(tickets new)
-    f=${ticket_path}${n}
+    f=${ticket_path}open/${n}
     sed -i '1,/----/d' $f
-    cat ${ticket_path}${t} >> $f
+    cat ${ticket_path}open/${t} >> $f
     sed -i '/ticket:/c\ticket: '$n $f
     sed -i '1d' $f
 	fi
