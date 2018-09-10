@@ -76,10 +76,13 @@ new()
 	echo -n "responsible: " >> ${f}
 	echo ${USER}"@"$(hostname) >> ${f}
 	echo "status: open" >> ${f}
+  echo "priority: 0" >> ${f}
 	echo "title: $title" >> ${f}
 	echo -n "open date: " >> ${f}
 	date >> ${f}
 	echo "close date: " >> ${f}
+  echo -n "scheduled: " >> ${f}
+  date +" %M %H %d %m %w %Y" >> ${f}
 	echo "man hours: " >> ${f}
 	echo "----" >> ${f}
 	echo "Describe the problem here" >> ${f}
