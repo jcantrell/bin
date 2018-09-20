@@ -70,6 +70,7 @@ new()
 	fi
   echo ${c} > ${cf}
 	f=${ticket_path}data/open/${c}
+  touch ${ticket_path}${c}
 
 	echo -n "ticket: " >> ${f}
 	echo ${c} >> ${f}
@@ -171,7 +172,7 @@ activateRecurring()
   n=$(tickets new "$title")
   s="Describe the problem here"
   sed '/'"$s"'/d' -i ${ticket_path}data/open/$n # delete line matching s
-  cat "$ticket_path"data/recurring/$1 | sed '/title: /d' >> "${ticket_path}open/$n"
+  cat "$ticket_path"data/recurring/$1 | sed '/title: /d' >> "${ticket_path}data/open$n"
 }
 
 # Create a new weekly task;
@@ -196,7 +197,7 @@ close()
       
     	sed "/status: /s/open/closed/" -i ${ticket_path}data/open/${!n}
     	sed "/close date: /s/$/$(date)/" -i ${ticket_path}data/open/${!n}
-			mv ${ticket_path}data/open/${!n} $ticket_path"closed"
+			mv ${ticket_path}data/open/${!n} $ticket_path"data/closed"
 
 			# Remove from openlist
 			sed "/"${!n}"/d" -i ${ticket_path}data/openlist
@@ -227,7 +228,8 @@ refresh()
 		| xargs grep '^title: ' \
 		| awk -F "/" '{print $NF}' \
 		| sort -V \
-		| sed 's/:/ /' >${ticket_path}data/openlist
+		| sed 's/:/ /' \
+    | sed 's/ title: /: /' >${ticket_path}data/openlist
 
 }
 
