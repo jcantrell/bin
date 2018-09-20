@@ -18,7 +18,7 @@ list()
 
 	# Grep for given arguments in openlist, sort by ticket number
 
-	eval "grep $args ${ticket_path}openlist" \
+	eval "grep $args ${ticket_path}data/openlist" \
 		| sort -V
 }
 
@@ -27,27 +27,27 @@ view()
 	if (($# ==  0)); then
 		echo "Usage: tickets view n1 n2 n3 ..."
 	else
-		[[ -e "$ticket_path"open/"$1" ]] && \
-      cat "$ticket_path"open/"$1" || \
-      cat "$ticket_path"closed"/$1"
+		[[ -e "$ticket_path"data/open/"$1" ]] && \
+      cat "$ticket_path"data/open/"$1" || \
+      cat "$ticket_path"data/closed"/$1"
 	fi
 }
 
 edit()
 {
 	if (( $#!=0 )); then
-    ed "$ticket_path"open/"$1" \
+    ed "$ticket_path"data/open/"$1" \
 
   	# Update entry in openlist
   
   	#Remove old entry
-  	sed "/^$1/d" -i ${ticket_path}openlist
+  	sed "/^$1/d" -i ${ticket_path}data/openlist
   	
   	#Get new title of task
-  	var=$(sed -n '/^title: /p' ${ticket_path}open/$1)
+  	var=$(sed -n '/^title: /p' ${ticket_path}data/open/$1)
   
   	#Add new title to openlist
-  	echo $1" "$var >> ${ticket_path}openlist
+  	echo $1" "$var >> ${ticket_path}data/openlist
   else
 	  echo "Usage: tickets edit n"
   fi
@@ -61,7 +61,7 @@ new()
 		title="?";
 	fi
 
-  cf=${ticket_path}current
+  cf=${ticket_path}data/current
 
   if [ -f ${cf} ]; then
 		c=$(( $(cat ${cf}) + 1))
@@ -69,7 +69,7 @@ new()
 		c=1
 	fi
   echo ${c} > ${cf}
-	f=${ticket_path}open/${c}
+	f=${ticket_path}data/open/${c}
 
 	echo -n "ticket: " >> ${f}
 	echo ${c} >> ${f}
@@ -88,7 +88,7 @@ new()
 	echo "Describe the problem here" >> ${f}
 
 	# Add an entry to openlist
-	echo ${c}" title: $title" >> ${ticket_path}openlist
+	echo ${c}" title: $title" >> ${ticket_path}data/openlist
 
 	echo ${c}
 	chmod 777 $f
@@ -103,11 +103,11 @@ recurring()
   add)
     crondate="$1"
     title="$2"
-    cf=${ticket_path}recurring/current
+    cf=${ticket_path}data/recurring/current
     c=0
     [[ -f ${cf} ]] && c=$(( $(cat ${cf}) + 1))
     echo ${c} > ${cf}
-    f=${ticket_path}recurring/${c}
+    f=${ticket_path}data/recurring/${c}
     echo "title: $title" >> ${f}
     echo "crondate: $crondate" >> ${f}
     chmod 777 $f
@@ -115,7 +115,7 @@ recurring()
     echo ${c}
     ;;
   reset)
-    for f in ${ticket_path}recurring/*; do
+    for f in ${ticket_path}data/recurring/*; do
       [ -e "$f" ] || continue;
       [ ! "$f" == "${ticket_path}recurring/current" ] || continue;
       t=$(grep 'title: ' "$f" | sed 's/title: //')
@@ -131,10 +131,10 @@ recurring()
     ;;
   remove)
     crontab -l | grep -v "tickets recurring activate $1" | crontab -
-    rm ${ticket_path}recurring/$1
+    rm ${ticket_path}data/recurring/$1
     ;;
   view)
-    cat ${ticket_path}recurring/$1
+    cat ${ticket_path}data/recurring/$1
     ;;
   list)
     #(for f in ${ticket_path}recurring/*; do
@@ -142,7 +142,7 @@ recurring()
     #  [ ! "$f" == "${ticket_path}recurring/current" ] || continue;
     #  crontab -l | grep "tickets recurring activate ${f##*/}" | uniq
     #done) | uniq
-    ls -I current ${ticket_path}recurring | xargs head -n 2 \
+    ls -I current ${ticket_path}data/recurring | xargs head -n 2 \
       | sed '/^\s*$/d' \
       | sed 's/\(==> \)\|\( <==\)//g' \
       | sed 'N;N;s/\(.*\)\n\(.*\)\n\(.*\)/\1\
@@ -167,11 +167,11 @@ recurring()
 
 activateRecurring()
 {
-  title=$(grep title ${ticket_path}recurring/$1 | sed 's/title: //')
+  title=$(grep title ${ticket_path}data/recurring/$1 | sed 's/title: //')
   n=$(tickets new "$title")
   s="Describe the problem here"
-  sed '/'"$s"'/d' -i ${ticket_path}open/$n # delete line matching s
-  cat "$ticket_path"recurring/$1 | sed '/title: /d' >> "${ticket_path}open/$n"
+  sed '/'"$s"'/d' -i ${ticket_path}data/open/$n # delete line matching s
+  cat "$ticket_path"data/recurring/$1 | sed '/title: /d' >> "${ticket_path}open/$n"
 }
 
 # Create a new weekly task;
@@ -180,7 +180,7 @@ weekly()
 {
     n=$(tickets new)
     sed "/title: /s/?/weekly tasks $(date +'%a, %b %d')/; /Describe the problem here/d" -i $ticket_path$n
-    cat "$ticket_path"recurring/weekly >> $ticket_path$n
+    cat "$ticket_path"data/recurring/weekly >> $ticket_path$n
 }
 
 close()
@@ -189,17 +189,17 @@ close()
 	if (( $# != 0 )); then
 		for ((n=1;n<=$#;n++))
 		do
-		  if [[ ! -e "${ticket_path}"open/"${!n}" ]]; then
+		  if [[ ! -e "${ticket_path}"data/open/"${!n}" ]]; then
         echo "Ticket ${!n} doesn't exist or is already closed!"
         continue
       fi
       
-    	sed "/status: /s/open/closed/" -i ${ticket_path}open/${!n}
-    	sed "/close date: /s/$/$(date)/" -i ${ticket_path}open/${!n}
-			mv ${ticket_path}open/${!n} $ticket_path"closed"
+    	sed "/status: /s/open/closed/" -i ${ticket_path}data/open/${!n}
+    	sed "/close date: /s/$/$(date)/" -i ${ticket_path}data/open/${!n}
+			mv ${ticket_path}data/open/${!n} $ticket_path"closed"
 
 			# Remove from openlist
-			sed "/"${!n}"/d" -i ${ticket_path}openlist
+			sed "/"${!n}"/d" -i ${ticket_path}data/openlist
 		done
 	else
 		echo "Usage: tickets close n"
@@ -213,12 +213,12 @@ refresh()
 	# list all tickets not in .tickets/closed in openlist
 
 	# Move unclosed tickets to .tickets
-	grep -R -L 'status: closed' ${ticket_path}closed \
-		| xargs -I{} mv {} ${ticket_path}open
+	grep -R -L 'status: closed' ${ticket_path}data/closed \
+		| xargs -I{} mv {} ${ticket_path}data/open
 
 	# Move closed tickets to closed
 	grep --exclude-dir=closed -R -l 'status: closed' ${ticket_path} \
-		| xargs -I{} mv {} ${ticket_path}closed
+		| xargs -I{} mv {} ${ticket_path}data/closed
 	
 	# Create openlist
 	grep --exclude-dir=closed --exclude-dir=.git --exclude=current \
@@ -227,7 +227,7 @@ refresh()
 		| xargs grep '^title: ' \
 		| awk -F "/" '{print $NF}' \
 		| sort -V \
-		| sed 's/:/ /' >${ticket_path}openlist
+		| sed 's/:/ /' >${ticket_path}data/openlist
 
 }
 
@@ -235,8 +235,8 @@ sync()
 {
   pushd $ticket_path
   d=$(date +'%s')
-  touch ${ticket_path}timestamp/"$d"
-  find ${ticket_path}timestamp/ -type f -not -name "$d" -delete
+  touch ${ticket_path}data/timestamp/"$d"
+  find ${ticket_path}data/timestamp/ -type f -not -name "$d" -delete
   git add -A
   git commit -m "auto sync $(date)"
   git pull
@@ -252,9 +252,9 @@ dup()
 	else
     t="$1"
     n=$(tickets new)
-    f=${ticket_path}open/${n}
+    f=${ticket_path}data/open/${n}
     sed -i '1,/----/d' $f
-    cat ${ticket_path}open/${t} >> $f
+    cat ${ticket_path}data/open/${t} >> $f
     sed -i '/ticket:/c\ticket: '$n $f
     sed -i '1d' $f
 	fi
@@ -267,7 +267,7 @@ sched()
 
   pat="5,10 0 10 * 1"
 
-	c=$(( $(cat ${ticket_path}timestamp) ))
+	c=$(( $(cat ${ticket_path}data/timestamp) ))
   echo "Last: $c"
   echo -n "Now:  "
   date +'%s' # >${ticket_path}timestamp
