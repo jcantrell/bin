@@ -70,7 +70,6 @@ new()
 	fi
   echo ${c} > ${cf}
 	f=${ticket_path}data/open/${c}
-  touch ${ticket_path}${c}
 
 	echo -n "ticket: " >> ${f}
 	echo ${c} >> ${f}
@@ -87,6 +86,9 @@ new()
 	echo "man hours: " >> ${f}
 	echo "----" >> ${f}
 	echo "Describe the problem here" >> ${f}
+
+  # Ticket exists in .tickets/ and .tickets/data/
+  ln -s ${ticket_path}data/open/${c} ${ticket_path}${c}
 
 	# Add an entry to openlist
 	echo ${c}" title: $title" >> ${ticket_path}data/openlist
@@ -195,9 +197,11 @@ close()
         continue
       fi
       
-    	sed "/status: /s/open/closed/" -i ${ticket_path}data/open/${!n}
-    	sed "/close date: /s/$/$(date)/" -i ${ticket_path}data/open/${!n}
-			mv ${ticket_path}data/open/${!n} $ticket_path"data/closed"
+    	sed "/status: /s/open/closed/" -i ${ticket_path}${!n}
+    	sed "/close date: /s/$/$(date)/" -i ${ticket_path}${!n}
+      rm ${ticket_path}data/open/${!n}
+      ln -s ${ticket_path}${!n} $ticket_path"data/closed/"${!n}
+			#mv ${ticket_path}data/open/${!n} $ticket_path"data/closed"
 
 			# Remove from openlist
 			sed "/"${!n}"/d" -i ${ticket_path}data/openlist
@@ -222,15 +226,17 @@ refresh()
 		| xargs -I{} mv {} ${ticket_path}data/closed
 	
 	# Create openlist
-	grep --exclude-dir=closed --exclude-dir=.git --exclude=current \
-		--exclude=openlist --exclude-dir=recurring -R -L 'status: closed' \
-		${ticket_path} \
+	#grep --exclude-dir=closed --exclude-dir=.git --exclude=current \
+	#	--exclude=openlist --exclude-dir=recurring -R -L 'status: closed' \
+	#	${ticket_path} \
+  grep --exclude-dir=.git --exclude-dir=data \
+    -R -L 'status: closed' \
+    ${ticket_path} \
 		| xargs grep '^title: ' \
 		| awk -F "/" '{print $NF}' \
 		| sort -V \
 		| sed 's/:/ /' \
     | sed 's/ title: /: /' >${ticket_path}data/openlist
-
 }
 
 sync()
