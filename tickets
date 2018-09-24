@@ -174,7 +174,7 @@ activateRecurring()
   n=$(tickets new "$title")
   s="Describe the problem here"
   sed '/'"$s"'/d' -i ${ticket_path}data/open/$n # delete line matching s
-  cat "$ticket_path"data/recurring/$1 | sed '/title: /d' >> "${ticket_path}data/open$n"
+  cat "$ticket_path"data/recurring/$1 | sed '/title: /d' >> "${ticket_path}data/open/$n"
 }
 
 # Create a new weekly task;
