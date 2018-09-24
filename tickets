@@ -18,8 +18,7 @@ list()
 
 	# Grep for given arguments in openlist, sort by ticket number
 
-	eval "grep $args ${ticket_path}data/openlist" \
-		| sort -V
+	eval "grep $args ${ticket_path}data/openlist"
 }
 
 view()
@@ -69,7 +68,8 @@ new()
 		c=1
 	fi
   echo ${c} > ${cf}
-	f=${ticket_path}data/open/${c}
+	#f=${ticket_path}data/open/${c}
+  f=${ticket_path}${c}
 
 	echo -n "ticket: " >> ${f}
 	echo ${c} >> ${f}
@@ -88,10 +88,10 @@ new()
 	echo "Describe the problem here" >> ${f}
 
   # Ticket exists in .tickets/ and .tickets/data/
-  ln -s ${ticket_path}data/open/${c} ${ticket_path}${c}
+  ln -s ${ticket_path}${c} ${ticket_path}data/open/${c}
 
 	# Add an entry to openlist
-	echo ${c}" title: $title" >> ${ticket_path}data/openlist
+	echo ${c}": 0: $title" >> ${ticket_path}data/openlist
 
 	echo ${c}
 	chmod 777 $f
@@ -192,14 +192,19 @@ close()
 	if (( $# != 0 )); then
 		for ((n=1;n<=$#;n++))
 		do
-		  if [[ ! -e "${ticket_path}"data/open/"${!n}" ]]; then
+		  if [[ (! -e "${ticket_path}${!n}") ]]; then
         echo "Ticket ${!n} doesn't exist or is already closed!"
         continue
       fi
       
-    	sed "/status: /s/open/closed/" -i ${ticket_path}${!n}
+    	sed "/status: /s/.*/status: closed/" -i ${ticket_path}${!n}
     	sed "/close date: /s/$/$(date)/" -i ${ticket_path}${!n}
-      rm ${ticket_path}data/open/${!n}
+      if [[ -e "${ticket_path}data/open/${!n}" ]]; then
+        rm ${ticket_path}data/open/${!n}
+      fi
+      if [[ -e "${ticket_path}data/scheduled/${!n}" ]]; then
+        rm ${ticket_path}data/scheduled/${!n}
+      fi
       ln -s ${ticket_path}${!n} $ticket_path"data/closed/"${!n}
 			#mv ${ticket_path}data/open/${!n} $ticket_path"data/closed"
 
@@ -213,35 +218,61 @@ close()
 
 refresh()
 {
-	# move all status: closed tickets to .tickets/closed, 
-	#	all else to .tickets
-	# list all tickets not in .tickets/closed in openlist
+	# move all status: closed tickets to .tickets/closed, etc
 
-	# Move unclosed tickets to .tickets
-	grep -R -L 'status: closed' ${ticket_path}data/closed \
-		| xargs -I{} mv {} ${ticket_path}data/open
+  pushd ${ticket_path} >/dev/null
+	# Move open tickets
+	grep -R -l --exclude-dir=.git --exclude-dir=data 'status: open' \
+		| xargs -I{} ln -s ${ticket_path}{} ${ticket_path}data/open \
+      2>/dev/null
 
 	# Move closed tickets to closed
-	grep --exclude-dir=closed -R -l 'status: closed' ${ticket_path} \
-		| xargs -I{} mv {} ${ticket_path}data/closed
+	grep -R -l --exclude-dir=.git --exclude-dir=data 'status: closed' \
+		| xargs -I{} ln -s ${ticket_path}{} ${ticket_path}data/closed \
+      2>/dev/null
+ 
+  grep -R -l --exclude-dir=.git --exclude-dir=data 'status: scheduled' |
+  xargs -I{} ln -s ${ticket_path}{} ${ticket_path}data/scheduled 2>/dev/null
 	
 	# Create openlist
 	#grep --exclude-dir=closed --exclude-dir=.git --exclude=current \
 	#	--exclude=openlist --exclude-dir=recurring -R -L 'status: closed' \
 	#	${ticket_path} \
-  grep --exclude-dir=.git --exclude-dir=data \
-    -R -L 'status: closed' \
-    ${ticket_path} \
+  grep -R -l --exclude-dir=.git --exclude-dir=data 'status: open' \
 		| xargs grep '^title: ' \
 		| awk -F "/" '{print $NF}' \
 		| sort -V \
 		| sed 's/:/ /' \
-    | sed 's/ title: /: /' >${ticket_path}data/openlist
+    | sed 's/ title: /: /' >/tmp/scripttestone
+
+  grep -R -l --exclude-dir=.git --exclude-dir=data 'status: open' |
+  while read i; do
+    (
+      echo $i;
+      grep '^title: ' $i | 
+      sed 's/^title: //'
+    ) |
+    sed '$!N;s/\n/: /'
+  done |
+  sort >/tmp/scripttest;
+
+  grep -R -l --exclude-dir=.git --exclude-dir=data 'status: open' |
+  while read i; do
+    (head -n 9 $i | tr '\n' ';');
+    echo;
+  done |
+  sed 's/ticket: \|responsible: \|status: \|priority: \|title: //g' |
+  sed 's/open date: \|close date: \|scheduled: \|man hours: //g' |
+  awk -F\; '{print $4 ";" $1 ";" $5}' |
+  sort |
+  awk -F\; '{print $2 ": " $1 ": " $3}' >${ticket_path}data/openlist
+
+  popd >/dev/null
 }
 
 sync()
 {
-  pushd $ticket_path
+  pushd $ticket_path >/dev/null
   d=$(date +'%s')
   touch ${ticket_path}data/timestamp/"$d"
   find ${ticket_path}data/timestamp/ -type f -not -name "$d" -delete
@@ -250,7 +281,7 @@ sync()
   git pull
   git push
   git pull
-  popd
+  popd >/dev/null
 }
 
 dup()
@@ -260,11 +291,12 @@ dup()
 	else
     t="$1"
     n=$(tickets new)
-    f=${ticket_path}data/open/${n}
+    f=${ticket_path}${n}
     sed -i '1,/----/d' $f
-    cat ${ticket_path}data/open/${t} >> $f
+    cat ${ticket_path}${t} >> $f
     sed -i '/ticket:/c\ticket: '$n $f
     sed -i '1d' $f
+    echo "$n"
 	fi
   refresh
 }
@@ -281,11 +313,24 @@ sched()
   date +'%s' # >${ticket_path}timestamp
 }
 
+activate()
+{
+	if (( $#!=0 )); then
+    n=$(tickets dup $1)
+    echo "n is $n"
+    d=$(date +" %M %H %d %m %w %Y")
+    sed -i "s/^scheduled: .*$/scheduled: $d/" "$n"
+    sed -i "s/^status: scheduled$/status: open/" "$n"
+
+  else
+	  echo "Usage: tickets activate n"
+  fi
+}
+
 main()
 {
   action="$1"
   shift
-#  sched
 	case "$action" in
 	  list)
 	    list "$@"
@@ -315,10 +360,26 @@ main()
     dup)
       dup "$@"
       ;;
+    activate)
+      activate "$@"
+      ;;
     recurring)
       recurring "$@"
       ;;
     *)
+      echo "pound is $#"
+      echo "1 is $1"
+      echo "a is $@"
+	    if [[ $# == 0 ]] ; then
+        tickets list
+        exit 0
+      fi
+      echo "1 is $1\n"
+      if [[ $1 =~ '^[0-9]+$' ]] ; then
+        tickets view $1
+        exit 0
+      fi
+      
       echo -n "Usage: tickets {list RE|view n|edit n|new title|weekly"
       echo    "|close n|refresh|sync|dup n}"
       exit 1
