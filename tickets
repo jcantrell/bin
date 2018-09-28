@@ -387,7 +387,6 @@ main()
       exit 1
 	esac
 
-  echo "closing sync" 1>&2 2>/dev/null
   tickets sync >/dev/null 2>&1 &# push new timestamp
 }
 
