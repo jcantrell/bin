@@ -46,7 +46,8 @@ edit()
   	var=$(sed -n '/^title: /p' ${ticket_path}data/open/$1)
   
   	#Add new title to openlist
-  	echo $1" "$var >> ${ticket_path}data/openlist
+  	#echo $1" "$var >> ${ticket_path}data/openlist
+    tickets refresh
   else
 	  echo "Usage: tickets edit n"
   fi
@@ -145,7 +146,8 @@ recurring()
     #  [ ! "$f" == "${ticket_path}recurring/current" ] || continue;
     #  crontab -l | grep "tickets recurring activate ${f##*/}" | uniq
     #done) | uniq
-    ls -I current ${ticket_path}data/recurring | xargs head -n 2 \
+    ls -I current ${ticket_path}data/recurring \
+      | xargs head -n 2 \
       | sed '/^\s*$/d' \
       | sed 's/\(==> \)\|\( <==\)//g' \
       | sed 'N;N;s/\(.*\)\n\(.*\)\n\(.*\)/\1\
@@ -156,8 +158,6 @@ recurring()
     ;;
   activate)
     activateRecurring "$1"
-    tickets sync
-    exit
     ;;
   *)
     echo -n "Usage: tickets recurring {add crondate title |"
@@ -174,7 +174,8 @@ activateRecurring()
   n=$(tickets new "$title")
   s="Describe the problem here"
   sed '/'"$s"'/d' -i ${ticket_path}data/open/$n # delete line matching s
-  cat "$ticket_path"data/recurring/$1 | sed '/title: /d' >> "${ticket_path}data/open/$n"
+  cat "$ticket_path"data/recurring/$1 | \
+  sed '/title: /d' >> "${ticket_path}data/open/$n"
 }
 
 # Create a new weekly task;
@@ -282,6 +283,7 @@ sync()
   git push
   git pull
   popd >/dev/null
+  sleep 2
 }
 
 dup()
@@ -385,6 +387,7 @@ main()
       exit 1
 	esac
 
+  echo "closing sync" 1>&2 2>/dev/null
   tickets sync >/dev/null 2>&1 &# push new timestamp
 }
 
