@@ -178,15 +178,6 @@ activateRecurring()
   sed '/title: /d' >> "${ticket_path}data/open/$n"
 }
 
-# Create a new weekly task;
-# Put date in title and add to weekly file
-weekly()
-{
-    n=$(tickets new)
-    sed "/title: /s/?/weekly tasks $(date +'%a, %b %d')/; /Describe the problem here/d" -i $ticket_path$n
-    cat "$ticket_path"data/recurring/weekly >> $ticket_path$n
-}
-
 close()
 {
 	# To-do: what if ticket $n doesn't exist, or already closed?
@@ -217,46 +208,72 @@ close()
 	fi
 }
 
+# Resolve tickets with merge conflicts (determined by presend of '=======')
+resolve()
+{
+  pushd ${ticket_path} >/dev/null
+
+  grep -R -l --exclude-dir=.git --exclude-dir=data '^=======$' |
+  while read t; do
+
+    #t="$1" #ticket
+    s=$(cat "$t" | grep -n '^<<<<<<< HEAD$' | cut -f1 -d:)
+    m=$(cat "$t" | grep -n '^=======$'      | cut -f1 -d:)
+    e=$(cat "$t" | grep -n '^>>>>>>>'       | cut -f1 -d:)
+
+    t2=$(tickets new)
+    sed -n -e "1,$((s-1)) p" \
+           -e "$((m+1)),$((e-1)) p"\
+           -e "$((e+1)),$ p"\
+           "$t" >"$t2"
+
+    sed -i -n -e "1,$((s-1)) p" -e "$((s+1)),$((m-1)) p" -e "$((e+1)),$ p" "$t"
+  done;
+
+  popd >/dev/null
+}
+
+# Refresh helpful datastructures in data/
+# don't take care of timestamp here, that  is done on exit
 refresh()
 {
 	# move all status: closed tickets to .tickets/closed, etc
 
   pushd ${ticket_path} >/dev/null
+
+  rm -r data/{scheduled,open,closed}
+  mkdir data/{scheduled,open,closed}
+  ls -I.git -Idata | sort -V | tail -n 1 >data/current
+
 	# Move open tickets
-	grep -R -l --exclude-dir=.git --exclude-dir=data 'status: open' \
-		| xargs -I{} ln -s ${ticket_path}{} ${ticket_path}data/open \
-      2>/dev/null
+	#grep -R -l --exclude-dir=.git --exclude-dir=data 'status: open' \
+	#	| xargs -I{} ln -s ${ticket_path}{} ${ticket_path}data/open \
+  #    2>/dev/null
+
+	grep -R -l --exclude-dir=.git --exclude-dir=data 'status: open' |
+  while read i; do
+    ln -s ${ticket_path}"$i" ${ticket_path}data/open
+  done
 
 	# Move closed tickets to closed
-	grep -R -l --exclude-dir=.git --exclude-dir=data 'status: closed' \
-		| xargs -I{} ln -s ${ticket_path}{} ${ticket_path}data/closed \
-      2>/dev/null
+	#grep -R -l --exclude-dir=.git --exclude-dir=data 'status: closed' \
+	#	| xargs -I{} ln -s ${ticket_path}{} ${ticket_path}data/closed \
+  #    2>/dev/null
+	grep -R -l --exclude-dir=.git --exclude-dir=data 'status: closed' |
+  while read i; do
+    ln -s ${ticket_path}"$i" ${ticket_path}data/closed
+  done
  
-  grep -R -l --exclude-dir=.git --exclude-dir=data 'status: scheduled' |
-  xargs -I{} ln -s ${ticket_path}{} ${ticket_path}data/scheduled 2>/dev/null
+  # Move scheduled tickets
+  #grep -R -l --exclude-dir=.git --exclude-dir=data 'status: scheduled' |
+  #xargs -I{} ln -s ${ticket_path}{} ${ticket_path}data/scheduled 2>/dev/null
+
+	grep -R -l --exclude-dir=.git --exclude-dir=data 'status: scheduled' |
+  while read i; do
+    ln -s ${ticket_path}"$i" ${ticket_path}data/scheduled
+  done
 	
 	# Create openlist
-	#grep --exclude-dir=closed --exclude-dir=.git --exclude=current \
-	#	--exclude=openlist --exclude-dir=recurring -R -L 'status: closed' \
-	#	${ticket_path} \
-  grep -R -l --exclude-dir=.git --exclude-dir=data 'status: open' \
-		| xargs grep '^title: ' \
-		| awk -F "/" '{print $NF}' \
-		| sort -V \
-		| sed 's/:/ /' \
-    | sed 's/ title: /: /' >/tmp/scripttestone
-
-  grep -R -l --exclude-dir=.git --exclude-dir=data 'status: open' |
-  while read i; do
-    (
-      echo $i;
-      grep '^title: ' $i | 
-      sed 's/^title: //'
-    ) |
-    sed '$!N;s/\n/: /'
-  done |
-  sort >/tmp/scripttest;
-
   grep -R -l --exclude-dir=.git --exclude-dir=data 'status: open' |
   while read i; do
     (head -n 9 $i | tr '\n' ';');
@@ -265,7 +282,7 @@ refresh()
   sed 's/ticket: \|responsible: \|status: \|priority: \|title: //g' |
   sed 's/open date: \|close date: \|scheduled: \|man hours: //g' |
   awk -F\; '{print $4 ";" $1 ";" $5}' |
-  sort |
+  sort -V |
   awk -F\; '{print $2 ": " $1 ": " $3}' >${ticket_path}data/openlist
 
   popd >/dev/null
@@ -296,97 +313,138 @@ dup()
     sed -i '1,/----/d' $f
     cat ${ticket_path}${t} >> $f
     sed -i '/ticket:/c\ticket: '$n $f
+    # move ticketpath/data/status/n to appropriate status/ dir
+    status=$(cat ${ticket_path}$n | sed -n '/status/p' | sed 's/status: //')
+    if [[ $status == "scheduled" ]] ; then
+      mv ${ticket_path}data/open/$n ${ticket_path}data/scheduled/$n
+    fi
+    if [[ $status == "closed" ]] ; then
+      mv ${ticket_path}data/open/$n ${ticket_path}data/closed/$n
+    fi
     sed -i '1d' $f
     echo "$n"
 	fi
-  refresh
-}
-
-sched()
-{
-  echo "Sched"
-
-  pat="5,10 0 10 * 1"
-
-	c=$(( $(cat ${ticket_path}data/timestamp) ))
-  echo "Last: $c"
-  echo -n "Now:  "
-  date +'%s' # >${ticket_path}timestamp
 }
 
 activate()
 {
 	if (( $#!=0 )); then
     n=$(tickets dup $1)
-    echo "n is $n"
+    echo "$n"
     d=$(date +" %M %H %d %m %w %Y")
+    pushd ${ticket_path} >/dev/null
     sed -i "s/^scheduled: .*$/scheduled: $d/" "$n"
     sed -i "s/^status: scheduled$/status: open/" "$n"
-
+    mv ${ticket_path}data/scheduled/${n} ${ticket_path}data/open/
+    popd >/dev/null
   else
 	  echo "Usage: tickets activate n"
   fi
 }
 
+condActivate()
+{
+  pushd ${ticket_path} >/dev/null
+
+  then=$(ls ${ticket_path}data/timestamp/ | sort -V | tail -n 1)
+  then=$(( ( then / 60 ) * 60 ))
+  now=$(date +'%s')
+
+  for (( i=$then; i<=$now; i+=60 )) ; do
+    grep -R -l --exclude-dir=.git --exclude-dir=data 'status: scheduled' |
+    while read f; do
+      newpat=$(grep 'scheduled:' "$f" | sed 's/scheduled: //')
+      idate=$(date -d@"$i" +'%M %H %d %m %u %Y')
+      dateMatch.pl "$newpat" "$idate"
+      match=$?
+      if [[ "$match" -eq 1 ]]; then
+        tickets activate "$f";
+      fi
+    done
+  done
+
+  popd >/dev/null
+}
+
 main()
 {
+  if [[ $# == 0 ]] ; then
+    tickets list
+    exit 0
+  fi
   action="$1"
   shift
+
+  recurse=false
+  if [[ $action == "list" ]] ; then
+    recurse=true
+  fi
+
+  if [[ $recurse == "true" ]] ; then
+    tickets condActivate
+  fi
+
 	case "$action" in
-	  list)
+	  list) # list tickets whose titles match a given regex
+     # tickets condActivate
 	    list "$@"
 	    ;;
-    view)
+    view) # view a specific ticket
+     # tickets condActivate
       view "$@"
       ;;
-    edit)
+    edit) # edit a specific ticket
+     # tickets condActivate
       edit "$@"
       ;;
-    new)
+    new) # create a new ticket
+     # tickets condActivate
       new "$@"
       ;;
-    weekly)
-      weekly "$@"
-      ;;
-    close)
+    close) #close a specific ticket
+     # tickets condActivate
       close "$@"
       ;;
-    refresh)
+    refresh) # refresh assistive data structures (in data/)
+     # tickets condActivate
       refresh "$@"
       ;;
-    sync)
+    sync) # sync with server
+      echo "sync"
       sync "$@"
-      exit
+      exit # Do not call sync() after this switch; that would be an inf. loop
       ;;
-    dup)
+    dup) # duplicate a ticket (contents and title, not dates)
       dup "$@"
       ;;
-    activate)
+    activate) # activate a scheduled ticket
       activate "$@"
       ;;
-    recurring)
-      recurring "$@"
+    condActivate)       # activate a ticket if it was scheduled between last run
+      condActivate "$@" # and now
+      tickets sync >/dev/null 2>&1 &
       ;;
-    *)
-      echo "pound is $#"
-      echo "1 is $1"
-      echo "a is $@"
-	    if [[ $# == 0 ]] ; then
-        tickets list
-        exit 0
-      fi
-      echo "1 is $1\n"
-      if [[ $1 =~ '^[0-9]+$' ]] ; then
+    resolve)            # resolve tickets with merge conflicts
+    #  tickets condActivate
+      resolve "$@"
+      ;;
+    *)                  # list or view, or print usage message
+      #tickets condActivate
+      if [[ $action =~ ^[0-9]+$ ]] ; then
         tickets view $1
         exit 0
       fi
       
-      echo -n "Usage: tickets {list RE|view n|edit n|new title|weekly"
-      echo    "|close n|refresh|sync|dup n}"
+      usageStr="Usage: tickets <command> <parameters>\n"
+      usageStr="\tlist RE\n\tview n\n\tedit n\n\tnew title\n\tweekly\n"
+      usageStr+="\tclose n\n\trefresh\n\tsync\n\tdup n\n"
+      echo -en "$usageStr"
       exit 1
 	esac
 
-  tickets sync >/dev/null 2>&1 &# push new timestamp
+  if [[ $recurse == "true" ]] ; then
+    tickets sync >/dev/null 2>&1 &# push new timestamp
+  fi
 }
 
 main "$@"
