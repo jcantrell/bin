@@ -85,6 +85,7 @@ new()
   echo -n "scheduled: " >> ${f}
   date +" %M %H %d %m %w %Y" >> ${f}
 	echo "man hours: " >> ${f}
+  echo "duplicates: 1" >> ${f}
 	echo "----" >> ${f}
 	echo "Describe the problem here" >> ${f}
 
@@ -92,7 +93,8 @@ new()
   ln -s ${ticket_path}${c} ${ticket_path}data/open/${c}
 
 	# Add an entry to openlist
-	echo ${c}": 0: $title" >> ${ticket_path}data/openlist
+	#echo ${c}": 0: $title" >> ${ticket_path}data/openlist
+  makeOpenList
 
 	echo ${c}
 	chmod 777 $f
@@ -201,7 +203,7 @@ close()
 			#mv ${ticket_path}data/open/${!n} $ticket_path"data/closed"
 
 			# Remove from openlist
-			sed "/"${!n}"/d" -i ${ticket_path}data/openlist
+			sed "/^"${!n}"/d" -i ${ticket_path}data/openlist
 		done
 	else
 		echo "Usage: tickets close n"
@@ -246,45 +248,42 @@ refresh()
   ls -I.git -Idata | sort -V | tail -n 1 >data/current
 
 	# Move open tickets
-	#grep -R -l --exclude-dir=.git --exclude-dir=data 'status: open' \
-	#	| xargs -I{} ln -s ${ticket_path}{} ${ticket_path}data/open \
-  #    2>/dev/null
-
 	grep -R -l --exclude-dir=.git --exclude-dir=data 'status: open' |
   while read i; do
     ln -s ${ticket_path}"$i" ${ticket_path}data/open
   done
 
 	# Move closed tickets to closed
-	#grep -R -l --exclude-dir=.git --exclude-dir=data 'status: closed' \
-	#	| xargs -I{} ln -s ${ticket_path}{} ${ticket_path}data/closed \
-  #    2>/dev/null
 	grep -R -l --exclude-dir=.git --exclude-dir=data 'status: closed' |
   while read i; do
     ln -s ${ticket_path}"$i" ${ticket_path}data/closed
   done
  
   # Move scheduled tickets
-  #grep -R -l --exclude-dir=.git --exclude-dir=data 'status: scheduled' |
-  #xargs -I{} ln -s ${ticket_path}{} ${ticket_path}data/scheduled 2>/dev/null
-
 	grep -R -l --exclude-dir=.git --exclude-dir=data 'status: scheduled' |
   while read i; do
     ln -s ${ticket_path}"$i" ${ticket_path}data/scheduled
   done
-	
+
+  makeOpenList
+
+  popd >/dev/null
+}
+
+makeOpenList()
+{
+  pushd ${ticket_path} >/dev/null
 	# Create openlist
   grep -R -l --exclude-dir=.git --exclude-dir=data 'status: open' |
   while read i; do
-    (head -n 9 $i | tr '\n' ';');
+    (head -n 9 $i | sed 's/.*: \(.*\)/\1/' | tr '\n' ';');
     echo;
   done |
-  sed 's/ticket: \|responsible: \|status: \|priority: \|title: //g' |
-  sed 's/open date: \|close date: \|scheduled: \|man hours: //g' |
+  #sed 's/ticket: \|responsible: \|status: \|priority: \|title: //g' |
+  #sed 's/open date: \|close date: \|scheduled: \|man hours: //g' |
   awk -F\; '{print $4 ";" $1 ";" $5}' |
   sort -V |
   awk -F\; '{print $2 ": " $1 ": " $3}' >${ticket_path}data/openlist
-
   popd >/dev/null
 }
 
@@ -326,16 +325,53 @@ dup()
 	fi
 }
 
+copy()
+{
+	if (($# ==  0)); then
+		echo "Usage: tickets view n1 n2 n3 ..."
+	else
+    t="$1"
+    n=$(tickets new)
+    f=${ticket_path}${n}
+    sed -i '/----/,$d' $f
+    sed -n '/----/,$p' ${ticket_path}${t} >> $f
+    title=$(sed -n '/title: /s/title: //p' "$t")
+    sed -i "/title: /s/.*/title: $title/" "$f"
+    # move ticketpath/data/status/n to appropriate status/ dir
+    #status=$(cat ${ticket_path}$n | sed -n '/status/p' | sed 's/status: //')
+    stat=$(sed -n '/status/s/status: //p' ${ticket_path}$t )
+    prio=$(sed -n '/priority/s/priority: //p' ${ticket_path}$t )
+    sed -i "/status: /s/.*/status: $stat/" "$f"
+    sed -i "/priority: /s/.*/priority: $prio/" "$f"
+    if [[ $stat == "scheduled" ]] ; then
+      mv ${ticket_path}data/open/$n ${ticket_path}data/scheduled/$n
+    fi
+    if [[ $stat == "closed" ]] ; then
+      mv ${ticket_path}data/open/$n ${ticket_path}data/closed/$n
+    fi
+    makeOpenList
+    echo "$n"
+	fi
+}
+
 activate()
 {
 	if (( $#!=0 )); then
-    n=$(tickets dup $1)
-    echo "$n"
-    d=$(date +" %M %H %d %m %w %Y")
     pushd ${ticket_path} >/dev/null
+    n=$(tickets copy $1)
+    echo "$n"
+    #d=$(date +" %M %H %d %m %w %Y")
+    d=$(sed -n '/scheduled/s/scheduled: //p' "$1")
+    stat=$(sed -n '/^status: /s/^status: \(.*\)/\1/p' "$1")
     sed -i "s/^scheduled: .*$/scheduled: $d/" "$n"
-    sed -i "s/^status: scheduled$/status: open/" "$n"
-    mv ${ticket_path}data/scheduled/${n} ${ticket_path}data/open/
+    sed -i "s/^status: .*$/status: open/" "$n"
+    if [[ $stat == "closed" ]]; then
+      mv ${ticket_path}data/closed/${n} ${ticket_path}data/open/
+    fi
+    if [[ $stat == "scheduled" ]]; then
+      mv ${ticket_path}data/scheduled/${n} ${ticket_path}data/open/
+    fi
+    makeOpenList
     popd >/dev/null
   else
 	  echo "Usage: tickets activate n"
@@ -427,6 +463,9 @@ main()
     resolve)            # resolve tickets with merge conflicts
     #  tickets condActivate
       resolve "$@"
+      ;;
+    copy)
+      copy "$@"
       ;;
     *)                  # list or view, or print usage message
       #tickets condActivate

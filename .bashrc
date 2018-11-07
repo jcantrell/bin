@@ -135,3 +135,6 @@ PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\[\033[00m\]\[\033[01;34m\
 alias bc='bc -l ~/.bin/math.bc'
 alias l='ls -F -v'
 alias mv='mv -nv'
+export TRELLO_USER=jordancantrell
+export TRELLO_KEY=ae728f78ecc851a4a3a810a72489539b
+export TRELLO_TOKEN=4b57997617d887ff64079cd3b72ec970d1f59cab7f93e8699d8f1a69eed8759f
