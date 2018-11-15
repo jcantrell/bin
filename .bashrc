@@ -138,3 +138,9 @@ alias mv='mv -nv'
 export TRELLO_USER=jordancantrell
 export TRELLO_KEY=ae728f78ecc851a4a3a810a72489539b
 export TRELLO_TOKEN=4b57997617d887ff64079cd3b72ec970d1f59cab7f93e8699d8f1a69eed8759f
+
+PATH="/home/jordan/perl5/bin${PATH:+:${PATH}}"; export PATH;
+PERL5LIB="/home/jordan/perl5/lib/perl5${PERL5LIB:+:${PERL5LIB}}"; export PERL5LIB;
+PERL_LOCAL_LIB_ROOT="/home/jordan/perl5${PERL_LOCAL_LIB_ROOT:+:${PERL_LOCAL_LIB_ROOT}}"; export PERL_LOCAL_LIB_ROOT;
+PERL_MB_OPT="--install_base \"/home/jordan/perl5\""; export PERL_MB_OPT;
+PERL_MM_OPT="INSTALL_BASE=/home/jordan/perl5"; export PERL_MM_OPT;

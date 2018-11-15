@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+use DateTime;
 use strict;
 use warnings;
 
@@ -9,49 +10,78 @@ sub elementOf {
   if ( $pattern =~ m/[^0-9\*\,]/ )
   {
     print "Invalid character found in pattern!\n";
-    $elementOf = 0;
-    return $elementOf;
-  }
-  if ($pattern eq '*')
-  {
-    $elementOf = 1;
-    return $elementOf;
-  }
-  {
-    if ($element == $pattern)
-    {
-      $elementOf = 1;
-    } else {
-      $elementOf = 0;
-    }
-    return $elementOf;
+    return 0;
+  } elsif ($pattern eq '*') {
+    return 1;
+  } else {
+    return ($element eq $pattern);
   }
 }
 
-sub main {
-  my $main = 0;
-  #my $pattern = " 0  0  *  * *    *";
-  #my $date =    "00 00 07 10 7 2018";
+sub dateMatch {
   my ($pattern, $date) = @_;
-  
   my @patternA = split ' ', $pattern;
   my @dateA = split ' ', $date;
 
-  if (!(((scalar @patternA) == 6) & ((scalar @dateA) == 6)))
-  {
-    print "Bad input!\n";
-    print "Usage: dateMatch pattern date\n";
-    return $main;
-  }
-  
   my $flag = 1;
-  my $element;
   for (my $i=0; $i < 6; $i++) {
-    $element = elementOf($patternA[$i], $dateA[$i]);
-    $flag = $flag & $element;
+    $flag = $flag & elementOf($patternA[$i], $dateA[$i]);
   }
-  $main = $flag;
-  return $main;
+
+  return $flag;
 }
 
-exit main($ARGV[0], $ARGV[1]);
+sub countDateMatches {
+  my ($pattern, $start, $end) = @_;
+  my $count = 0;
+  for (my $i=$start; $i <= $end; $i += 60) {
+    my $dt = DateTime->from_epoch( time_zone => 'America/Los_Angeles', epoch => $i );
+    print "$i: ";
+    my $is = "" . $dt->minute;
+    $is .= " " . $dt->hour;
+    $is .= " " . $dt->day;
+    $is .= " " . $dt->month;
+    $is .= " " . $dt->day_of_week;
+    $is .= " " . $dt->year;
+    if ( dateMatch( $pattern, $is) ) {
+      print $is;
+      print "\n";
+      $count = $count + 1;
+    }
+  }
+  print "start: $start, end: $end\n";
+  return $count;
+}
+
+sub main {
+  my ($pattern, $start, $end) = @_;
+  
+  my @patternA = split ' ', $pattern;
+
+  if ( (scalar @patternA) != 6 )
+  {
+    print "Bad input!\n";
+    print "Usage: dateMatch pattern date [offset]\n";
+    return 1; 
+  }
+  
+  return dateMatch( $pattern, $start, $end );
+}
+
+if ($#ARGV+1 == 2)
+{
+    print main($ARGV[0], $ARGV[1], $ARGV[1]);
+    print "\n";
+    exit 0;
+}
+elsif ($#ARGV+1 == 3)
+{
+    print countDateMatches( $ARGV[0], $ARGV[1], $ARGV[2] );
+    print "\n";
+    exit 0;
+} 
+else
+{
+  print main(0,0,0);
+  exit 1;
+}

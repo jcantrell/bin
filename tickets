@@ -386,16 +386,13 @@ condActivate()
   then=$(( ( then / 60 ) * 60 ))
   now=$(date +'%s')
 
-  for (( i=$then; i<=$now; i+=60 )) ; do
-    grep -R -l --exclude-dir=.git --exclude-dir=data 'status: scheduled' |
-    while read f; do
-      newpat=$(grep 'scheduled:' "$f" | sed 's/scheduled: //')
-      idate=$(date -d@"$i" +'%M %H %d %m %u %Y')
-      dateMatch.pl "$newpat" "$idate"
-      match=$?
-      if [[ "$match" -eq 1 ]]; then
-        tickets activate "$f";
-      fi
+  grep -R -l --exclude-dir=.git --exclude-dir=data 'status: scheduled' |
+  while read f; do
+    newpat=$(grep 'scheduled:' "$f" | sed 's/scheduled: //')
+    count=$(countDateMatches.py "$newpat" "$then" "$now")
+
+    for ((i=0;i < $count; i++ )) ; do
+      tickets activate "$f";
     done
   done
 
