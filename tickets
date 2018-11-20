@@ -100,86 +100,6 @@ new()
 	chmod 777 $f
 }
 
-recurring()
-{
-  action="$1"
-  shift
-
-	case "$action" in
-  add)
-    crondate="$1"
-    title="$2"
-    cf=${ticket_path}data/recurring/current
-    c=0
-    [[ -f ${cf} ]] && c=$(( $(cat ${cf}) + 1))
-    echo ${c} > ${cf}
-    f=${ticket_path}data/recurring/${c}
-    echo "title: $title" >> ${f}
-    echo "crondate: $crondate" >> ${f}
-    chmod 777 $f
-    tickets recurring reset
-    echo ${c}
-    ;;
-  reset)
-    for f in ${ticket_path}data/recurring/*; do
-      [ -e "$f" ] || continue;
-      [ ! "$f" == "${ticket_path}recurring/current" ] || continue;
-      t=$(grep 'title: ' "$f" | sed 's/title: //')
-      cd=$(grep 'crondate: ' "$f" | sed 's/crondate: //')
-
-
-      croncommand="$cd /bin/bash -ci 'source "
-      croncommand="$croncommand""\$HOME/.bashrc;"
-      croncommand="$croncommand""tickets recurring activate ${f##*/}'"
-      (crontab -l; echo "$croncommand") \
-        2>/dev/null | uniq | crontab -
-    done
-    ;;
-  remove)
-    crontab -l | grep -v "tickets recurring activate $1" | crontab -
-    rm ${ticket_path}data/recurring/$1
-    ;;
-  view)
-    cat ${ticket_path}data/recurring/$1
-    ;;
-  list)
-    #(for f in ${ticket_path}recurring/*; do
-    #  [ -e "$f" ] || continue;
-    #  [ ! "$f" == "${ticket_path}recurring/current" ] || continue;
-    #  crontab -l | grep "tickets recurring activate ${f##*/}" | uniq
-    #done) | uniq
-    ls -I current ${ticket_path}data/recurring \
-      | xargs head -n 2 \
-      | sed '/^\s*$/d' \
-      | sed 's/\(==> \)\|\( <==\)//g' \
-      | sed 'N;N;s/\(.*\)\n\(.*\)\n\(.*\)/\1\
-\3\
-\2/' \
-      | sed 'N;N;s/\n/ /g' \
-      | sed 's/crondate: //'
-    ;;
-  activate)
-    activateRecurring "$1"
-    ;;
-  *)
-    echo -n "Usage: tickets recurring {add crondate title |"
-    echo -n "remove recurId | activate recurId | list | reset}"
-    echo
-    exit 1
-    ;;
-  esac
-}
-
-activateRecurring()
-{
-  title=$(grep title ${ticket_path}data/recurring/$1 | sed 's/title: //')
-  n=$(tickets new "$title")
-  s="Describe the problem here"
-  sed '/'"$s"'/d' -i ${ticket_path}data/open/$n # delete line matching s
-  cat "$ticket_path"data/recurring/$1 | \
-  sed '/title: /d' >> "${ticket_path}data/open/$n"
-}
-
 close()
 {
 	# To-do: what if ticket $n doesn't exist, or already closed?
@@ -210,7 +130,8 @@ close()
 	fi
 }
 
-# Resolve tickets with merge conflicts (determined by presend of '=======')
+# Resolve all tickets with merge conflicts 
+# (determined by presend of '=======')
 resolve()
 {
   pushd ${ticket_path} >/dev/null
@@ -230,9 +151,26 @@ resolve()
            "$t" >"$t2"
 
     sed -i -n -e "1,$((s-1)) p" -e "$((s+1)),$((m-1)) p" -e "$((e+1)),$ p" "$t"
+    echo "$t2"
   done;
 
   popd >/dev/null
+}
+
+# Check existence of data/ objects
+# timestamp, current, openlist, status directories
+checkIntegrity()
+{
+  if ! [[ -e "$ticket_path"data && \
+        -e "$ticket_path"data/timestamp && \
+        -e "$ticket_path"data/current && \
+        -e "$ticket_path"data/openlist && \
+        -e "$ticket_path"data/open && \
+        -e "$ticket_path"data/closed && \
+        -e "$ticket_path"data/scheduled && \
+        -e "$ticket_path"data/blocked ]]; then
+    refresh
+  fi
 }
 
 # Refresh helpful datastructures in data/
@@ -243,7 +181,7 @@ refresh()
 
   pushd ${ticket_path} >/dev/null
 
-  rm -r data/{scheduled,open,closed}
+  rm -r data/{scheduled,open,closed,current,openlist}
   mkdir data/{scheduled,open,closed}
   ls -I.git -Idata | sort -V | tail -n 1 >data/current
 
@@ -263,6 +201,12 @@ refresh()
 	grep -R -l --exclude-dir=.git --exclude-dir=data 'status: scheduled' |
   while read i; do
     ln -s ${ticket_path}"$i" ${ticket_path}data/scheduled
+  done
+
+  # Move blocked tickets
+	grep -R -l --exclude-dir=.git --exclude-dir=data 'status: blocked' |
+  while read i; do
+    ln -s ${ticket_path}"$i" ${ticket_path}data/blocked
   done
 
   makeOpenList
@@ -420,6 +364,7 @@ main()
 	case "$action" in
 	  list) # list tickets whose titles match a given regex
      # tickets condActivate
+      checkIntegrity
 	    list "$@"
 	    ;;
     view) # view a specific ticket
