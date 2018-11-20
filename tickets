@@ -182,7 +182,7 @@ refresh()
   pushd ${ticket_path} >/dev/null
 
   rm -r data/{scheduled,open,closed,current,openlist}
-  mkdir data/{scheduled,open,closed}
+  mkdir data/{scheduled,open,closed,blocked}
   ls -I.git -Idata | sort -V | tail -n 1 >data/current
 
 	# Move open tickets
