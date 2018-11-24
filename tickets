@@ -53,6 +53,19 @@ edit()
   fi
 }
 
+sum()
+{
+  pushd "$ticket_path" >/dev/null
+  if (( $#!=0 )); then
+    #cat "$ticket_path"$1
+    echo "summing $1"
+    sed -n '/^\(x\|?\)\t/!p' "$1"
+  else
+    echo "Usage: tickets sum n"
+  fi
+  popd >/dev/null
+}
+
 new()
 {
 	if (( $# != 0)); then
@@ -181,7 +194,7 @@ refresh()
 
   pushd ${ticket_path} >/dev/null
 
-  rm -r data/{scheduled,open,closed,current,openlist}
+  rm -r data/{scheduled,open,closed,blocked,current,openlist}
   mkdir data/{scheduled,open,closed,blocked}
   ls -I.git -Idata | sort -V | tail -n 1 >data/current
 
@@ -408,6 +421,9 @@ main()
       ;;
     copy)
       copy "$@"
+      ;;
+    sum)
+      sum "$@"
       ;;
     *)                  # list or view, or print usage message
       #tickets condActivate
