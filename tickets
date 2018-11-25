@@ -150,8 +150,8 @@ resolve()
   pushd ${ticket_path} >/dev/null
 
   # resolve (possibly) conflicted data/current
-  cat data/current | grep '^[0-9]*$' | sort -V | tail -n 1 >data/current
-
+  cat data/current | grep '^[0-9]*$' | sort -V | tail -n 1 >data/current2
+  mv data/current2 data/current
   grep -R -l --exclude-dir=.git --exclude-dir=data '^=======$' |
   while read t; do
 
