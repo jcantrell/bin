@@ -401,7 +401,6 @@ main()
       refresh "$@"
       ;;
     sync) # sync with server
-      echo "sync"
       sync "$@"
       exit # Do not call sync() after this switch; that would be an inf. loop
       ;;
@@ -409,6 +408,7 @@ main()
       dup "$@"
       ;;
     activate) # activate a scheduled ticket
+      echo 'activating'
       activate "$@"
       ;;
     condActivate)       # activate a ticket if it was scheduled between last run
