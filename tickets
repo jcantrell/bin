@@ -153,9 +153,9 @@ resolve()
   while read t; do
 
     #t="$1" #ticket
-    s=$(cat "$t" | grep -n '^<<<<<<< HEAD$' | cut -f1 -d:)
-    m=$(cat "$t" | grep -n '^=======$'      | cut -f1 -d:)
-    e=$(cat "$t" | grep -n '^>>>>>>>'       | cut -f1 -d:)
+    s=$(cat "$t" | grep -n '^<<<<<<< HEAD$' | cut -f1 -d: | head -n 1)
+    m=$(cat "$t" | grep -n '^=======$'      | cut -f1 -d: | head -n 1)
+    e=$(cat "$t" | grep -n '^>>>>>>>'       | cut -f1 -d: | head -n 1)
 
     t2=$(tickets new)
     sed -n -e "1,$((s-1)) p" \
