@@ -149,6 +149,9 @@ resolve()
 {
   pushd ${ticket_path} >/dev/null
 
+  # resolve (possibly) conflicted data/current
+  cat data/current | grep '^[0-9]*$' | sort -V | tail -n 1 >data/current
+
   grep -R -l --exclude-dir=.git --exclude-dir=data '^=======$' |
   while read t; do
 
@@ -157,7 +160,7 @@ resolve()
     m=$(cat "$t" | grep -n '^=======$'      | cut -f1 -d: | head -n 1)
     e=$(cat "$t" | grep -n '^>>>>>>>'       | cut -f1 -d: | head -n 1)
 
-    #create new ticket for top of merge
+    #create new ticket or file for top of merge
     t2=$(tickets new)
     if [[ 1 -ne "$s" ]]; then
       sed -n -e "1,$((s-1)) p" "$t" >"$t2"
@@ -185,7 +188,6 @@ resolve()
       sedcmd+=" -e \"$((e+1)),$ p\""
     fi
     cmd="sed -i -n $sedcmd $t"
-    echo "cmd: $cmd"
     eval $cmd
     
     echo "$t2"
