@@ -163,23 +163,30 @@ resolve()
       sed -n -e "1,$((s-1)) p" "$t" >"$t2"
     fi
     if [[ "$((m+1))" -ne "$e" ]]; then
-      sed -n -e "$((m+1)),$((e-1)) p" "$t" >"$t2"
+      sed -n -e "$((m+1)),$((e-1)) p" "$t" >>"$t2"
     fi
-    if [[ "$e" -ne $(wc -l <filetest) ]]; then
-      sed -n -e "$((e+1)),$ p" "$t" >"$t2"
+    if [[ "$e" -ne $(wc -l <"$t") ]]; then
+      sed -n -e "$((e+1)),$ p" "$t" >>"$t2"
     fi
 
     # keep bottom of merge in old ticket
     #sed -i -n -e "1,$((s-1)) p" -e "$((s+1)),$((m-1)) p" -e "$((e+1)),$ p" "$t"
+    sedcmd=""
     if [[ 1 -ne "$s" ]]; then
-      sed -i -n -e "1,$((s-1)) p" "$t"
+      #sed -i -n -e "1,$((s-1)) p" "$t"
+      sedcmd+="-e \"1,$((s-1)) p\""
     fi
     if [[ "$((s+1))" -ne "$m" ]]; then
-      sed -n -e "$((s+1)),$((m-1)) p" "$t"
+      #sed -i -n -e "$((s+1)),$((m-1)) p" "$t"
+      sedcmd+=" -e \"$((s+1)),$((m-1)) p\""
     fi
-    if [[ "$e" -ne $(wc -l <filetest) ]]; then
-      sed -n -e "$((e+1)),$ p" "$t"
+    if [[ "$e" -ne $(wc -l <"$t") ]]; then
+      #sed -i -n -e "$((e+1)),$ p" "$t"
+      sedcmd+=" -e \"$((e+1)),$ p\""
     fi
+    cmd="sed -i -n $sedcmd $t"
+    echo "cmd: $cmd"
+    eval $cmd
     
     echo "$t2"
   done;
