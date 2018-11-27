@@ -434,7 +434,6 @@ main()
       dup "$@"
       ;;
     activate) # activate a scheduled ticket
-      echo 'activating'
       activate "$@"
       ;;
     condActivate)       # activate a ticket if it was scheduled between last run
