@@ -1,0 +1,130 @@
+#!/bin/bash
+REMUSER=cantrel2
+LOCUSER=`whoami`
+REPONAME=develop
+
+REMOTE="/home/$REMUSER/projects/llvm-project"
+LOCAL="/home/$LOCUSER/projects/llvm-project"
+INSTANCE=""
+GCPIP=""
+
+inst()
+{
+  echo `gcloud compute instances list | tail -n 1 | awk '{ print $1 }'`
+}
+
+up()
+{
+	[[ $1 ]] && INSTANCE="$1" || INSTANCE=$(inst)
+  gcloud compute instances start "$INSTANCE"
+}
+
+down()
+{
+  [[ $1 ]] && INSTANCE="$1" || INSTANCE=$(inst)
+  gcloud compute instances stop "$INSTANCE"
+}
+
+ip()
+{
+  LINE=`gcloud compute instances list | tail -n 1`
+  EXTIP=`echo $LINE | awk '{ print $9 }'`
+  STATUS=`echo $LINE | awk '{ print $10 }'`
+
+  # If STATUS is empty, the external ip column is blank (instance isn't on)
+  # so return "", otherwise return the IP address
+  [[ -z "$STATUS" ]] && GCPIP="" || GCPIP="$EXTIP"
+  echo -n "$GCPIP"
+}
+
+sync()
+{
+  up
+  ip >/dev/null
+  [[ $1 ]] && REPONAME="$1"
+
+	REMOTEBIN="$REMOTE/$REPONAME/build/bin"
+	LOCALBIN="$LOCAL/$REPONAME/build/bin"
+	REMOTEINC="$REMOTE/$REPONAME/build/lib/clang/9.0.0/include"
+	LOCALINC="$LOCAL/$REPONAME/build/lib/clang/9.0.0"
+
+  mkdir -p "$LOCALBIN"
+  mkdir -p "$LOCALINC"
+
+  sleep 3
+	rsync -PLc -r --stats "$REMUSER"@"$GCPIP":"$REMOTEBIN"/clang "$LOCALBIN"/clang
+	rsync -PLc -r --stats "$REMUSER"@"$GCPIP":"$REMOTEINC" "$LOCALINC"
+  down
+}
+
+build()
+{
+  up
+  ip >/dev/null
+
+	[[ $1 ]] && REPONAME="$1"
+	[[ $2 ]] && CORES="$2" || CORES=12
+
+	CMDSTR="cd $REMOTE/$REPONAME/build;pwd;git branch;git pull;make -j $CORES"
+	
+  sleep 3
+	ssh "$REMUSER"@"$GCPIP" "$CMDSTR"
+  down
+}
+
+run()
+{
+  up
+  ip >/dev/null
+  sleep 3
+  ssh "$REMUSER"@"$GCPIP" "$*"
+  down
+}
+
+connect()
+{
+  up
+  ip >/dev/null
+  #whoami
+  #echo "remuser is $REMUSER"
+  #echo "ip is $GCPIP"
+  sleep 3 # connection fails if we try too soon
+  ssh "$REMUSER"@"$GCPIP"
+  down
+}
+
+main()
+{
+  action="$1"
+  shift
+  case "$action" in
+  build) # build the repo
+    build "$@"
+    ;;
+  sync) # sync built clang and includes
+    sync "$@"
+    ;;
+  ip) # get ip (if running)
+    ip "$@"
+    ;;
+  up) # bring up instance
+    up "$@"
+    ;;
+  down) # bring down instance
+    down "$@"
+    ;;
+  run) # run a command
+    run "$@"
+    ;;
+  inst) # (first) instance name
+    inst "$@"
+    ;;
+  connect) # connect for interactive session
+    connect "$@"
+    ;;
+  *)
+    echo -en "Usage: gcptool [ACTTION]"
+  esac
+}
+
+main "$@"
