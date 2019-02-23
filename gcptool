@@ -68,7 +68,7 @@ build()
 	CMDSTR="cd $REMOTE/$REPONAME/build;pwd;git branch;git pull;make -j $CORES"
 	
   sleep 3
-	ssh "$REMUSER"@"$GCPIP" "$CMDSTR"
+	ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
   down
 }
 
@@ -77,7 +77,7 @@ run()
   up
   ip >/dev/null
   sleep 3
-  ssh "$REMUSER"@"$GCPIP" "$*"
+  ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$*"
   down
 }
 
@@ -89,7 +89,7 @@ connect()
   #echo "remuser is $REMUSER"
   #echo "ip is $GCPIP"
   sleep 3 # connection fails if we try too soon
-  ssh "$REMUSER"@"$GCPIP"
+  ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP"
   down
 }
 
