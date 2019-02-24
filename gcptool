@@ -51,9 +51,33 @@ sync()
   mkdir -p "$LOCALBIN"
   mkdir -p "$LOCALINC"
 
-  sleep 3
+  sleep 4
 	rsync -PLc -r --stats "$REMUSER"@"$GCPIP":"$REMOTEBIN"/clang "$LOCALBIN"/clang
 	rsync -PLc -r --stats "$REMUSER"@"$GCPIP":"$REMOTEINC" "$LOCALINC"
+  down
+}
+
+freshen()
+{
+  up
+  ip >/dev/null
+
+	[[ $1 ]] && REPONAME="$1"
+	[[ $2 ]] && CORES="$2" || CORES=48
+
+  CMAKEOPTS="-DLLVM_ENABLE_PROJECTS=clang -G \"Unix Makefiles\" ../llvm"
+
+  CMDSTR=""
+  CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME/build;"
+	CMDSTR="${CMDSTR}pwd;"
+  CMDSTR="${CMDSTR}git branch -vv;"
+  CMDSTR="${CMDSTR}git pull;"
+  CMDSTR="${CMDSTR}rm -rf *;"
+  CMDSTR="${CMDSTR}cmake $CMAKEOPTS;"
+  CMDSTR="${CMDSTR}make -j $CORES;"
+	
+  sleep 4
+	ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
   down
 }
 
@@ -63,9 +87,14 @@ build()
   ip >/dev/null
 
 	[[ $1 ]] && REPONAME="$1"
-	[[ $2 ]] && CORES="$2" || CORES=12
+	[[ $2 ]] && CORES="$2" || CORES=48
 
-	CMDSTR="cd $REMOTE/$REPONAME/build;pwd;git branch;git pull;make -j $CORES"
+  CMDSTR=""
+  CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME/build;"
+	CMDSTR="${CMDSTR}pwd;"
+  CMDSTR="${CMDSTR}git branch -vv;"
+  CMDSTR="${CMDSTR}git pull;"
+  CMDSTR="${CMDSTR}make -j $CORES;"
 	
   sleep 3
 	ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
@@ -121,6 +150,9 @@ main()
     ;;
   connect) # connect for interactive session
     connect "$@"
+    ;;
+  freshen) # clear out build/ and rerun cmake
+    freshen "$@"
     ;;
   *)
     echo -en "Usage: gcptool [ACTTION]"
