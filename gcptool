@@ -1,12 +1,26 @@
 #!/bin/bash
 REMUSER=cantrel2
 LOCUSER=`whoami`
-REPONAME=develop
+REPONAME=seedarg
 
 REMOTE="/home/$REMUSER/projects/llvm-project"
 LOCAL="/home/$LOCUSER/projects/llvm-project"
 INSTANCE=""
 GCPIP=""
+
+usage()
+{
+  echo -e "Usage: gcptool [ACTTION]"
+  echo -e ""
+  echo -e "  up      [instance]          start an instance"
+  echo -e "  down    [instance]          stop an instance"
+  echo -e "  ip      [instance]          get ip address of an instance"
+  echo -e "  sync    [reponame]          copy executable and headers"
+  echo -e "  build   [reponame] [cores]  build repo using # of cores"
+  echo -e "  freshen [reponame] [cores]  clean build of repo, using # of cores"
+  echo -e "  run     command             run command on vm"
+  echo -e "  connect                     ssh into vm"
+}
 
 inst()
 {
@@ -43,17 +57,22 @@ sync()
   ip >/dev/null
   [[ $1 ]] && REPONAME="$1"
 
-	REMOTEBIN="$REMOTE/$REPONAME/build/bin"
-	LOCALBIN="$LOCAL/$REPONAME/build/bin"
+	REMOTEBIN="$REMOTE/$REPONAME/build/bin/clang"
+	LOCALBIN="$LOCAL/$REPONAME/build/bin/clang"
 	REMOTEINC="$REMOTE/$REPONAME/build/lib/clang/9.0.0/include"
 	LOCALINC="$LOCAL/$REPONAME/build/lib/clang/9.0.0"
+  SSHSTR="ssh -l $REMUSER -o StrictHostKeyChecking=no"
+  RSYNCOPTS=( -PLc -r --stats -e "${SSHSTR}" )
+  echo 
 
-  mkdir -p "$LOCALBIN"
+  mkdir -p $(dirname "$LOCALBIN")
   mkdir -p "$LOCALINC"
 
   sleep 4
-	rsync -PLc -r --stats "$REMUSER"@"$GCPIP":"$REMOTEBIN"/clang "$LOCALBIN"/clang
-	rsync -PLc -r --stats "$REMUSER"@"$GCPIP":"$REMOTEINC" "$LOCALINC"
+  # bash variable replacement shenanigans with RSYNCOPTS are due to the quotes
+  # needed to pass the SSHSTR to rsync.
+	rsync "${RSYNCOPTS[@]}" "$REMUSER"@"$GCPIP":"$REMOTEBIN" "$LOCALBIN"
+	rsync "${RSYNCOPTS[@]}" "$REMUSER"@"$GCPIP":"$REMOTEINC" "$LOCALINC"
   down
 }
 
@@ -155,7 +174,8 @@ main()
     freshen "$@"
     ;;
   *)
-    echo -en "Usage: gcptool [ACTTION]"
+    usage "$@"
+    ;;
   esac
 }
 
