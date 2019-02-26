@@ -8,6 +8,15 @@ LOCAL="/home/$LOCUSER/projects/llvm-project"
 INSTANCE=""
 GCPIP=""
 
+installgcloud()
+{
+  cd ~
+  wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-235.0.0-linux-x86_64.tar.gz"
+  tar -xvf "google-cloud-sdk-235.0.0-linux-x86_64.tar.gz"
+  ./google-cloud-sdk/install.sh
+  ./google-cloud-sdk/bin/gcloud init
+}
+
 usage()
 {
   echo -e "Usage: gcptool [ACTTION]"
@@ -141,6 +150,62 @@ connect()
   down
 }
 
+bync()
+{
+  up
+  ip >/dev/null
+
+  #build
+
+	[[ $1 ]] && REPONAME="$1"
+	[[ $2 ]] && CORES="$2" || CORES=48
+
+  CMDSTR=""
+  CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME/build;"
+	CMDSTR="${CMDSTR}pwd;"
+  CMDSTR="${CMDSTR}git branch -vv;"
+  CMDSTR="${CMDSTR}git pull;"
+  CMDSTR="${CMDSTR}make -j"
+
+	
+  echo "Building"
+  sleep 3
+  #decrease # of cores until success or we just have impossibly
+  #few cores
+  #while [[ $retval != 0 && $CORES > 6 ]]
+  #do
+	  ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR $CORES;"
+    retval=$?
+    echo "ssh retval is $retval"
+    #CORES=$((CORES/2))
+  #CMDSTR="cd $REMOTE/$REPONAME/build;make -j $((CORES/2))"
+  #CMDSTR="cd $REMOTE/$REPONAME/build;make -j $((CORES/2))"
+  #done
+
+  # sync
+  echo "Syncing"
+	REMOTEBIN="$REMOTE/$REPONAME/build/bin/clang"
+	LOCALBIN="$LOCAL/$REPONAME/build/bin/clang"
+	REMOTEINC="$REMOTE/$REPONAME/build/lib/clang/9.0.0/include"
+	LOCALINC="$LOCAL/$REPONAME/build/lib/clang/9.0.0"
+  SSHSTR="ssh -l $REMUSER -o StrictHostKeyChecking=no"
+  RSYNCOPTS=( -PLc -r --stats -e "${SSHSTR}" )
+  echo 
+
+  mkdir -p $(dirname "$LOCALBIN")
+  mkdir -p "$LOCALINC"
+
+  sleep 4
+  # bash variable replacement shenanigans with RSYNCOPTS are due to the quotes
+  # needed to pass the SSHSTR to rsync.
+  echo "Syncing executable"
+	rsync "${RSYNCOPTS[@]}" "$REMUSER"@"$GCPIP":"$REMOTEBIN" "$LOCALBIN"
+  echo "Syncing headers"
+	rsync "${RSYNCOPTS[@]}" "$REMUSER"@"$GCPIP":"$REMOTEINC" "$LOCALINC"
+
+  down
+}
+
 main()
 {
   action="$1"
@@ -173,10 +238,17 @@ main()
   freshen) # clear out build/ and rerun cmake
     freshen "$@"
     ;;
+  installgcloud) # install gcloud (not tested)
+    installgcloud "$@"
+    ;;
+  bync) # build and sync; don't bother taking the vm down in between
+    bync "$@"
+    ;;
   *)
     usage "$@"
     ;;
   esac
 }
+
 
 main "$@"

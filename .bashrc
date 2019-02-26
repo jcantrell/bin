@@ -148,6 +148,7 @@ alias mkdir='mkdir -p'
 alias cp='cp -vn'
 alias ls='ls -aF'
 alias gl="git log --pretty=format:'%C(yellow)%h %Cred%ad %Cblue%an%Cgreen%d %Creset%s' --date=short"
+alias gacp="git add -A;git commit -m 'generic commit';git push"
 
 export PATH=$PATH:$(go env GOPATH)/bin
 
