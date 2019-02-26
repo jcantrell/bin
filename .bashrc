@@ -72,29 +72,9 @@ xterm*|rxvt*)
     ;;
 esac
 
-# enable color support of ls and also add handy aliases
-if [ -x /usr/bin/dircolors ]; then
-    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
-    alias ls='ls --color=auto'
-    #alias dir='dir --color=auto'
-    #alias vdir='vdir --color=auto'
-
-    alias grep='grep --color=auto'
-    alias fgrep='fgrep --color=auto'
-    alias egrep='egrep --color=auto'
-fi
-
 # colored GCC warnings and errors
 #export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
 
-# some more ls aliases
-alias ll='ls -alF'
-alias la='ls -A'
-alias l='ls -CF'
-
-# Add an "alert" alias for long running commands.  Use like so:
-#   sleep 10; alert
-alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
 
 # Alias definitions.
 # You may want to put all your additions into a separate file like
@@ -116,9 +96,11 @@ if ! shopt -oq posix; then
   fi
 fi
 
-if [ -x /usr/bin/mint-fortune ]; then
-     /usr/bin/mint-fortune
-fi
+# mint fortune isn't working for some reason
+#if [ -x /usr/bin/mint-fortune ]; then
+#     /usr/bin/mint-fortune
+#fi
+fortune
 
 note_ () {
     id="$1"
@@ -131,9 +113,6 @@ note_ () {
 
 PATH=$PATH:/home/jordan/.bin
 PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\[\033[00m\]\[\033[01;34m\]\$\[\033[00m\] '
-alias bc='bc -l ~/.bin/math.bc'
-alias l='ls -F -v'
-alias mv='mv -nv'
 export TRELLO_USER=jordancantrell
 export TRELLO_KEY=ae728f78ecc851a4a3a810a72489539b
 export TRELLO_TOKEN=4b57997617d887ff64079cd3b72ec970d1f59cab7f93e8699d8f1a69eed8759f
@@ -144,11 +123,6 @@ PERL_LOCAL_LIB_ROOT="/home/jordan/perl5${PERL_LOCAL_LIB_ROOT:+:${PERL_LOCAL_LIB_
 PERL_MB_OPT="--install_base \"/home/jordan/perl5\""; export PERL_MB_OPT;
 PERL_MM_OPT="INSTALL_BASE=/home/jordan/perl5"; export PERL_MM_OPT;
 export GOPATH=$HOME/go
-alias mkdir='mkdir -p'
-alias cp='cp -vn'
-alias ls='ls -aF'
-alias gl="git log --pretty=format:'%C(yellow)%h %Cred%ad %Cblue%an%Cgreen%d %Creset%s' --date=short"
-alias gacp="git add -A;git commit -m 'generic commit';git push"
 
 export PATH=$PATH:$(go env GOPATH)/bin
 
@@ -157,3 +131,9 @@ parse_git_branch() {
 }
 
 export PS1="\u@\h \[\033[32m\]\w\[\033[33m\]\$(parse_git_branch)\[\033[00m\]\n$ "
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/home/jordan/google-cloud-sdk/path.bash.inc' ]; then . '/home/jordan/google-cloud-sdk/path.bash.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/home/jordan/google-cloud-sdk/completion.bash.inc' ]; then . '/home/jordan/google-cloud-sdk/completion.bash.inc'; fi
