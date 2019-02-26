@@ -85,6 +85,33 @@ sync()
   down
 }
 
+new()
+{
+  up
+  ip >/dev/null
+
+	[[ $1 ]] && REPONAME="$1"
+	[[ $2 ]] && CORES="$2" || CORES=48
+
+  CMAKEOPTS="-DLLVM_ENABLE_PROJECTS=clang -G \"Unix Makefiles\" ../llvm"
+
+  CMDSTR=""
+  CMDSTR="${CMDSTR}git clone https://github.com/clang-randstruct/llvm-project ~/$REMOTE/$REPONAME;"
+  CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME;git checkout -t remotes/origin/$REPONAME"
+  CMDSTR="${CMDSTR}mkdir -p $REMOTE/$REPONAME/build;"
+  CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME/build;"
+	CMDSTR="${CMDSTR}pwd;"
+  CMDSTR="${CMDSTR}git branch -vv;"
+  CMDSTR="${CMDSTR}git pull;"
+  CMDSTR="${CMDSTR}rm -rf *;"
+  CMDSTR="${CMDSTR}cmake $CMAKEOPTS;"
+  CMDSTR="${CMDSTR}make -j $CORES;"
+	
+  sleep 4
+	ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
+  down
+}
+
 freshen()
 {
   up
@@ -96,6 +123,7 @@ freshen()
   CMAKEOPTS="-DLLVM_ENABLE_PROJECTS=clang -G \"Unix Makefiles\" ../llvm"
 
   CMDSTR=""
+  CMDSTR="${CMDSTR}mkdir -p $REMOTE/$REPONAME/build;"
   CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME/build;"
 	CMDSTR="${CMDSTR}pwd;"
   CMDSTR="${CMDSTR}git branch -vv;"
@@ -243,6 +271,9 @@ main()
     ;;
   bync) # build and sync; don't bother taking the vm down in between
     bync "$@"
+    ;;
+  new)
+    new "$@"
     ;;
   *)
     usage "$@"
