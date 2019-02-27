@@ -3,12 +3,13 @@ REMUSER=cantrel2
 LOCUSER=`whoami`
 REPONAME=seedarg
 BRANCH="$REPONAME"
+MODE="gcloud"
 
 REMOTE="/home/$REMUSER/projects/llvm-project"
 LOCAL="/home/$LOCUSER/projects/llvm-project"
 REPOURL="https://github.com/clang-randstruct/llvm-project"
 INSTANCE=""
-GCPIP=""
+GCPIP="10.0.0.216"
 
 installgcloud()
 {
