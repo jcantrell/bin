@@ -102,15 +102,18 @@ new()
   CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME/build;"
 	CMDSTR="${CMDSTR}pwd;"
   CMDSTR="${CMDSTR}git fetch;"
+  CMDSTR="${CMDSTR}echo RUNNING NEW;"
   CMDSTR="${CMDSTR}git checkout -t remotes/origin/$BRANCH;"
+  CMDSTR="${CMDSTR}echo git branch: ;"
   CMDSTR="${CMDSTR}git branch -vv;"
-  CMDSTR="${CMDSTR}git pull;"
-  CMDSTR="${CMDSTR}git reset --hard `git branch -vv | grep \* | awk '{ print $4 }' | sed 's/\[\|\]//g'`;"
+  CMDSTR="${CMDSTR}df -h;"
+
+
+  #SSHOPTS="-o StrictHostKeyChecking=no"
+	#ssh "$SSHOPTS" "$REMUSER"@"$GCPIP" "$CMDSTR"
+  run "$CMDSTR"
 
   freshen "$REPONAME"
-
-  SSHOPTS="-o StrictHostKeyChecking=no"
-	ssh "$SSHOPTS" "$REMUSER"@"$GCPIP" "$CMDSTR"
 }
 
 freshen()
@@ -123,11 +126,13 @@ freshen()
   CMDSTR=""
   CMDSTR="${CMDSTR}mkdir -p $REMOTE/$REPONAME/build;"
   CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME/build;"
-	CMDSTR="${CMDSTR}echo killingstudd at;pwd;"
+  CMDSTR="${CMDSTR}git pull;"
+  CMDSTR="${CMDSTR}git reset --hard `git branch -vv | grep \* | awk '{ print $4 }' | sed 's/\[\|\]//g'`;"
   CMDSTR="${CMDSTR}rm -rf *;"
   CMDSTR="${CMDSTR}cmake $CMAKEOPTS;"
 	
-	ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
+  run "$CMDSTR"
+	#ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
   build "$REPONAME" "$CORES"
 }
 
@@ -153,14 +158,25 @@ build()
   do
     CMDSTR2="${CMDSTR} $CORES;"
     echo "Building with $CORES processors"
-    echo "Retval is $retval"
     echo "$CMDSTR2" | sed 's/;/;\n/g' >buildin
-	  ssh "$SSHOPTS" "$REMUSER"@"$GCPIP" "$CMDSTR2" 1> >(tee buildout) 2> >(tee builderr)
+    run "$CMDSTR2"
     retval=$?
+    echo "Make returned $retval"
     CORES=$((CORES/2))
   done
-	
-	#ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
+}
+
+runtest()
+{
+	[[ $1 ]] && REPONAME="$1"
+
+  CMDSTR=""
+  CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME/build;"
+  CMDSTR="${CMDSTR}make clang-test;"
+  CMDSTR="${CMDSTR}cd $REMOTE/testing/poc;"
+  CMDSTR="${CMDSTR}make;"
+
+  run "$CMDSTR"
 }
 
 run()
@@ -170,7 +186,10 @@ run()
   then
     echo "Instance not running"
   else
-    ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$*"
+    SSHOPTS="-o StrictHostKeyChecking=no"
+    SSHREDIRECTS="1> >(tee buildout) 2> >(tee builderr)"
+    echo $* | sed 's/;/;\n/g' > gcptoolin
+	  ssh "$SSHOPTS" "$REMUSER"@"$GCPIP" "$*" 1> >(tee gcptoolout) 2> >(tee gcptoolerr)
   fi
 }
 
@@ -223,7 +242,6 @@ main()
     ;;
   freshen) # clear out build/ and rerun cmake
     up
-    ip >/dev/null
     freshen "$@"
     down
     ;;
@@ -232,14 +250,17 @@ main()
     ;;
   bync) # build and sync; don't bother taking the vm down in between
     up
-    ip >/dev/null
     bync "$@"
     down
     ;;
   new) # create a new clone given a name and branch
     up
-    ip >/dev/null
     new "$@"
+    down
+    ;;
+  runtest) # runtest a repo
+    up
+    runtest "$@"
     down
     ;;
   *) # show how to use this dang thing
@@ -247,6 +268,5 @@ main()
     ;;
   esac
 }
-
 
 main "$@"

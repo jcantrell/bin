@@ -12,6 +12,6 @@ rm ~/.bash_aliases
 cp ~/.bin/.bashrc ~
 cp ~/.bin/.bashrc ~
 for f in ${fileset[@]}; do
-  rm ~/$f
-  cp ~/.bin/$f ~
+  rm -rf ~/$f
+  cp -r ~/.bin/$f ~
 done
