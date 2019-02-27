@@ -2,6 +2,7 @@
 REMUSER=cantrel2
 LOCUSER=`whoami`
 REPONAME=seedarg
+BRANCH="$REPONAME"
 
 REMOTE="/home/$REMUSER/projects/llvm-project"
 LOCAL="/home/$LOCUSER/projects/llvm-project"
@@ -24,12 +25,17 @@ usage()
   echo -e ""
   echo -e "  up      [instance]          start an instance"
   echo -e "  down    [instance]          stop an instance"
-  echo -e "  ip      [instance]          get ip address of an instance"
+  echo -e "  ip                          get ip address of the default instance"
+  echo -e "  inst                        get name of the default instance"
   echo -e "  sync    [reponame]          copy executable and headers"
+  echo -e "  new     [reponame] [branch] make a new directory for a repo"
   echo -e "  build   [reponame] [cores]  build repo using # of cores"
+  echo -e "  bync    [reponame] [cores]  build and sync a repo with # of cores"
   echo -e "  freshen [reponame] [cores]  clean build of repo, using # of cores"
   echo -e "  run     command             run command on vm"
   echo -e "  connect                     ssh into vm"
+  echo -e "  installgcloud               allegedly installes the gcloud tool"
+  echo 
 }
 
 inst()
@@ -41,6 +47,7 @@ up()
 {
 	[[ $1 ]] && INSTANCE="$1" || INSTANCE=$(inst)
   gcloud compute instances start "$INSTANCE"
+  ip >/dev/null
 }
 
 down()
@@ -63,8 +70,6 @@ ip()
 
 sync()
 {
-  up
-  ip >/dev/null
   [[ $1 ]] && REPONAME="$1"
 
 	REMOTEBIN="$REMOTE/$REPONAME/build/bin/clang"
@@ -78,21 +83,18 @@ sync()
   mkdir -p $(dirname "$LOCALBIN")
   mkdir -p "$LOCALINC"
 
-  sleep 4
   # bash variable replacement shenanigans with RSYNCOPTS are due to the quotes
   # needed to pass the SSHSTR to rsync.
+  echo "Syncing executable"
 	rsync "${RSYNCOPTS[@]}" "$REMUSER"@"$GCPIP":"$REMOTEBIN" "$LOCALBIN"
+  echo "Syncing headers"
 	rsync "${RSYNCOPTS[@]}" "$REMUSER"@"$GCPIP":"$REMOTEINC" "$LOCALINC"
-  down
 }
 
 new()
 {
-  up
-  ip >/dev/null
-
 	[[ $1 ]] && REPONAME="$1"
-	[[ $2 ]] && CORES="$2" || CORES=48
+  [[ $2 ]] && BRANCH="$2"
 
   CMAKEOPTS="-DLLVM_ENABLE_PROJECTS=clang -G \"Unix Makefiles\" ../llvm"
 
@@ -100,51 +102,34 @@ new()
   CMDSTR="${CMDSTR}git clone $REPOURL $REMOTE/$REPONAME;"
   CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME;"
   CMDSTR="${CMDSTR}git fetch;"
-  CMDSTR="${CMDSTR}git checkout -t remotes/origin/$REPONAME;"
-  CMDSTR="${CMDSTR}mkdir -p $REMOTE/$REPONAME/build;"
-  CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME/build;"
-	CMDSTR="${CMDSTR}pwd;"
-  CMDSTR="${CMDSTR}git branch -vv;"
-  CMDSTR="${CMDSTR}git pull;"
-  CMDSTR="${CMDSTR}rm -rf *;"
-  CMDSTR="${CMDSTR}cmake $CMAKEOPTS;"
-  CMDSTR="${CMDSTR}make -j $CORES;"
-	
-  sleep 4
+  CMDSTR="${CMDSTR}git checkout -t remotes/origin/$BRANCH;"
+
 	ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
-  down
 }
 
 freshen()
 {
-  up
-  ip >/dev/null
-
 	[[ $1 ]] && REPONAME="$1"
-	[[ $2 ]] && CORES="$2" || CORES=48
+	[[ $2 ]] && CORES="$2"
 
   CMAKEOPTS="-DLLVM_ENABLE_PROJECTS=clang -G \"Unix Makefiles\" ../llvm"
 
   CMDSTR=""
   CMDSTR="${CMDSTR}mkdir -p $REMOTE/$REPONAME/build;"
   CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME/build;"
+  #CMDSTR="${CMDSTR}git reset --hard remotes/origin/$BRANCH;"
 	CMDSTR="${CMDSTR}pwd;"
   CMDSTR="${CMDSTR}git branch -vv;"
   CMDSTR="${CMDSTR}git pull;"
+  CMDSTR="${CMDSTR}git reset --hard `git branch -vv | grep \* | awk '{ print $4 }' | sed 's/\[\|\]//g'`;"
   CMDSTR="${CMDSTR}rm -rf *;"
-  CMDSTR="${CMDSTR}cmake $CMAKEOPTS;"
-  CMDSTR="${CMDSTR}make -j $CORES;"
 	
-  sleep 4
 	ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
-  down
+  build "$REPONAME" "$CORES"
 }
 
 build()
 {
-  up
-  ip >/dev/null
-
 	[[ $1 ]] && REPONAME="$1"
 	[[ $2 ]] && CORES="$2" || CORES=48
 
@@ -153,88 +138,53 @@ build()
 	CMDSTR="${CMDSTR}pwd;"
   CMDSTR="${CMDSTR}git branch -vv;"
   CMDSTR="${CMDSTR}git pull;"
-  CMDSTR="${CMDSTR}make -j $CORES;"
+  CMDSTR="${CMDSTR}make -j "
+
+  #decrease # of cores until success or we just have impossibly
+  #few cores
+  retval=1;
+  echo "pre-lop retval is $retval"
+  echo "pre-loop cores is $CORES"
+  #echo [[ $retval != 0 && $CORES > 6 ]]
+  while [ $retval -ne 0 ] && [ $CORES -gt 6 ]
+  do
+    echo "In loop!"
+    echo "ssh retval is $retval"
+    echo "cores is $CORES"
+	  ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR $CORES;"
+    retval=$?
+    CORES=$((CORES/2))
+    echo "ssh retval is $retval"
+    echo "cores is $CORES"
+  done
 	
-  sleep 3
-	ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
-  down
+	#ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
 }
 
 run()
 {
-  up
   ip >/dev/null
-  sleep 3
-  ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$*"
-  down
-}
-
-connect()
-{
-  up
-  ip >/dev/null
-  #whoami
-  #echo "remuser is $REMUSER"
-  #echo "ip is $GCPIP"
-  sleep 3 # connection fails if we try too soon
-  ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP"
-  down
+  if [[ -z "$GCPIP" ]]
+  then
+    echo "Instance not running"
+  else
+    ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$*"
+  fi
 }
 
 bync()
 {
-  up
-  ip >/dev/null
+	[[ $1 ]] && REPONAME="$1"
+	[[ $2 ]] && CORES="$2" 
 
   #build
 
-	[[ $1 ]] && REPONAME="$1"
-	[[ $2 ]] && CORES="$2" || CORES=48
-
-  CMDSTR=""
-  CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME/build;"
-	CMDSTR="${CMDSTR}pwd;"
-  CMDSTR="${CMDSTR}git branch -vv;"
-  CMDSTR="${CMDSTR}git pull;"
-  CMDSTR="${CMDSTR}make -j"
-
-	
   echo "Building"
-  sleep 3
-  #decrease # of cores until success or we just have impossibly
-  #few cores
-  #while [[ $retval != 0 && $CORES > 6 ]]
-  #do
-	  ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR $CORES;"
-    retval=$?
-    echo "ssh retval is $retval"
-    #CORES=$((CORES/2))
-  #CMDSTR="cd $REMOTE/$REPONAME/build;make -j $((CORES/2))"
-  #CMDSTR="cd $REMOTE/$REPONAME/build;make -j $((CORES/2))"
-  #done
+	build "$REPONAME" "$CORES"
 
   # sync
   echo "Syncing"
-	REMOTEBIN="$REMOTE/$REPONAME/build/bin/clang"
-	LOCALBIN="$LOCAL/$REPONAME/build/bin/clang"
-	REMOTEINC="$REMOTE/$REPONAME/build/lib/clang/9.0.0/include"
-	LOCALINC="$LOCAL/$REPONAME/build/lib/clang/9.0.0"
-  SSHSTR="ssh -l $REMUSER -o StrictHostKeyChecking=no"
-  RSYNCOPTS=( -PLc -r --stats -e "${SSHSTR}" )
-  echo 
-
-  mkdir -p $(dirname "$LOCALBIN")
-  mkdir -p "$LOCALINC"
-
-  sleep 4
-  # bash variable replacement shenanigans with RSYNCOPTS are due to the quotes
-  # needed to pass the SSHSTR to rsync.
-  echo "Syncing executable"
-	rsync "${RSYNCOPTS[@]}" "$REMUSER"@"$GCPIP":"$REMOTEBIN" "$LOCALBIN"
-  echo "Syncing headers"
-	rsync "${RSYNCOPTS[@]}" "$REMUSER"@"$GCPIP":"$REMOTEINC" "$LOCALINC"
-
-  down
+  sync "$REPONAME"
 }
 
 main()
@@ -243,10 +193,16 @@ main()
   shift
   case "$action" in
   build) # build the repo
+    up
+    ip >/dev/null
     build "$@"
+    down
     ;;
   sync) # sync built clang and includes
+    up
+    ip >/dev/null
     sync "$@"
+    down
     ;;
   ip) # get ip (if running)
     ip "$@"
@@ -257,28 +213,34 @@ main()
   down) # bring down instance
     down "$@"
     ;;
-  run) # run a command
+  run) # run a command if up (or login, if no commands given)
     run "$@"
     ;;
   inst) # (first) instance name
     inst "$@"
     ;;
-  connect) # connect for interactive session
-    connect "$@"
-    ;;
   freshen) # clear out build/ and rerun cmake
+    up
+    ip >/dev/null
     freshen "$@"
+    down
     ;;
   installgcloud) # install gcloud (not tested)
     installgcloud "$@"
     ;;
   bync) # build and sync; don't bother taking the vm down in between
+    up
+    ip >/dev/null
     bync "$@"
+    down
     ;;
-  new)
+  new) # create a new clone given a name and branch
+    up
+    ip >/dev/null
     new "$@"
+    down
     ;;
-  *)
+  *) # show how to use this dang thing
     usage "$@"
     ;;
   esac
