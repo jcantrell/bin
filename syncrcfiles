@@ -1,0 +1,17 @@
+#!/bin/bash
+fileset=(
+  .bashrc
+  .vimrc
+  .bash_aliases
+  .gitconfig
+  .vim
+)
+rm ~/.bashrc
+rm ~/.vimrc
+rm ~/.bash_aliases
+cp ~/.bin/.bashrc ~
+cp ~/.bin/.bashrc ~
+for f in ${fileset[@]}; do
+  rm ~/$f
+  cp ~/.bin/$f ~
+done
