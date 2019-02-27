@@ -17,6 +17,7 @@ installgcloud()
   tar -xvf "google-cloud-sdk-235.0.0-linux-x86_64.tar.gz"
   ./google-cloud-sdk/install.sh
   ./google-cloud-sdk/bin/gcloud init
+  echo "Run 'source ~/.bashrc' or login again to use gcloud"
 }
 
 usage()
