@@ -1,0 +1,5 @@
+[user]
+	email = cantrel2@pdx.edu
+	name = Jordan Cantrell
+[alias]
+  lg = log --pretty=format:'%C(yellow)%h %Cred%ad %Cblue%an%Cgreen%d %Creset%s' --date=short
