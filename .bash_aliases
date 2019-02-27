@@ -27,5 +27,5 @@ alias mkdir='mkdir -p'
 alias cp='cp -vn'
 alias ls='ls -F'
 alias gl="git log --pretty=format:'%C(yellow)%h %Cred%ad %Cblue%an%Cgreen%d %Creset%s' --date=short"
-alias gacp="git add -A;git commit -m 'generic commit';git push"
+alias gacp="git ls-files --others --exclude-standard >>.gitignore;git add -A;git commit -m 'generic commit';git push"
 alias repoinit="cscope -R -q -k -b;ctags -R .;echo cscope.{in.,po.,}out tags .gitignore | sed 's/ /\n/g' >>.gitignore"

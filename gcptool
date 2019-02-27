@@ -34,7 +34,6 @@ usage()
   echo -e "  bync    [reponame] [cores]  build and sync a repo with # of cores"
   echo -e "  freshen [reponame] [cores]  clean build of repo, using # of cores"
   echo -e "  run     command             run command on vm"
-  echo -e "  connect                     ssh into vm"
   echo -e "  installgcloud               allegedly installes the gcloud tool"
   echo 
 }
@@ -97,15 +96,21 @@ new()
 	[[ $1 ]] && REPONAME="$1"
   [[ $2 ]] && BRANCH="$2"
 
-  CMAKEOPTS="-DLLVM_ENABLE_PROJECTS=clang -G \"Unix Makefiles\" ../llvm"
-
   CMDSTR=""
   CMDSTR="${CMDSTR}git clone $REPOURL $REMOTE/$REPONAME;"
-  CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME;"
+  CMDSTR="${CMDSTR}mkdir -p $REMOTE/$REPONAME/build;"
+  CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME/build;"
+	CMDSTR="${CMDSTR}pwd;"
   CMDSTR="${CMDSTR}git fetch;"
   CMDSTR="${CMDSTR}git checkout -t remotes/origin/$BRANCH;"
+  CMDSTR="${CMDSTR}git branch -vv;"
+  CMDSTR="${CMDSTR}git pull;"
+  CMDSTR="${CMDSTR}git reset --hard `git branch -vv | grep \* | awk '{ print $4 }' | sed 's/\[\|\]//g'`;"
 
-	ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
+  freshen "$REPONAME"
+
+  SSHOPTS="-o StrictHostKeyChecking=no"
+	ssh "$SSHOPTS" "$REMUSER"@"$GCPIP" "$CMDSTR"
 }
 
 freshen()
@@ -118,12 +123,9 @@ freshen()
   CMDSTR=""
   CMDSTR="${CMDSTR}mkdir -p $REMOTE/$REPONAME/build;"
   CMDSTR="${CMDSTR}cd $REMOTE/$REPONAME/build;"
-  #CMDSTR="${CMDSTR}git reset --hard remotes/origin/$BRANCH;"
-	CMDSTR="${CMDSTR}pwd;"
-  CMDSTR="${CMDSTR}git branch -vv;"
-  CMDSTR="${CMDSTR}git pull;"
-  CMDSTR="${CMDSTR}git reset --hard `git branch -vv | grep \* | awk '{ print $4 }' | sed 's/\[\|\]//g'`;"
+	CMDSTR="${CMDSTR}echo killingstudd at;pwd;"
   CMDSTR="${CMDSTR}rm -rf *;"
+  CMDSTR="${CMDSTR}cmake $CMAKEOPTS;"
 	
 	ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
   build "$REPONAME" "$CORES"
@@ -141,22 +143,21 @@ build()
   CMDSTR="${CMDSTR}git pull;"
   CMDSTR="${CMDSTR}make -j "
 
+  SSHOPTS="-o StrictHostKeyChecking=no"
+
   #decrease # of cores until success or we just have impossibly
   #few cores
+  # To-Do: only loop if make exited with error 4, out of memory
   retval=1;
-  echo "pre-lop retval is $retval"
-  echo "pre-loop cores is $CORES"
-  #echo [[ $retval != 0 && $CORES > 6 ]]
   while [ $retval -ne 0 ] && [ $CORES -gt 6 ]
   do
-    echo "In loop!"
-    echo "ssh retval is $retval"
-    echo "cores is $CORES"
-	  ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR $CORES;"
+    CMDSTR2="${CMDSTR} $CORES;"
+    echo "Building with $CORES processors"
+    echo "Retval is $retval"
+    echo "$CMDSTR2" | sed 's/;/;\n/g' >buildin
+	  ssh "$SSHOPTS" "$REMUSER"@"$GCPIP" "$CMDSTR2" 1> >(tee buildout) 2> >(tee builderr)
     retval=$?
     CORES=$((CORES/2))
-    echo "ssh retval is $retval"
-    echo "cores is $CORES"
   done
 	
 	#ssh -o StrictHostKeyChecking=no "$REMUSER"@"$GCPIP" "$CMDSTR"
